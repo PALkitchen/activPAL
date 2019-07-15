@@ -3,8 +3,8 @@ library(activPAL)
 
 test_that("generate_cadence_histograme", {
 
-  input_directory <- paste(getwd(),"/",sep="")
-  output_directory <- paste(tempdir(),"\\",sep="")
+  input_directory <- paste(system.file("extdata", "", package = "activPAL"),"/",sep="")
+  output_directory <- paste(tempdir(),"/",sep="")
 
   daily.stepping.activity.bubble.chart(input_directory,output_directory)
 

@@ -3,11 +3,11 @@ library(activPAL)
 
 test_that("generate_activity_summary", {
 
-  input_directory <- paste(getwd(),"/",sep="")
-  output_directory <- paste(tempdir(),"\\",sep="")
+  input_directory <- paste(system.file("extdata", "", package = "activPAL"),"/",sep="")
+  output_directory <- paste(tempdir(),"/",sep="")
   file_data <- activity.summary.by.window.duration(input_directory,output_directory,2)
   expect_equal(nrow(file_data), 12)
-  expect_equal(ncol(file_data), 12)
+  expect_equal(ncol(file_data), 14)
   expect_equal(sum(file_data$steps), 2006)
 
   file_data <- list.files(output_directory,"summary*.csv")

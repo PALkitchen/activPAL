@@ -3,8 +3,8 @@ library(activPAL)
 
 test_that("generate_cadence_histograme", {
 
-  input_directory <- paste(getwd(),"/",sep="")
-  output_directory <- paste(tempdir(),"\\",sep="")
+  input_directory <- paste(system.file("extdata", "", package = "activPAL"),"/",sep="")
+  output_directory <- paste(tempdir(),"/",sep="")
 
   file_data <- stepping.cadence.bands.folder.two.stepping.groups(input_directory,output_directory)
   expect_equal(nrow(file_data), 1)

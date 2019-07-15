@@ -1,7 +1,7 @@
 Package: activPAL
 Type: Package
 Title: Advanced Processing and Chart Generation from activPAL Events Files 
-Version: 0.1.1
+Version: 0.1.2
 Authors@R: c(
     person("Craig", "Speirs", email = "craig@paltechnologies.com", role = c("aut", "cre")),
     person("Kate", "Lyden", email = "kate@paltechnologies.com", role = c("ctb")),
@@ -9,7 +9,7 @@ Authors@R: c(
     person("David", "Loudon", email = "david@paltechnologies.com", role = c("ctb")))
 Maintainer: Craig Speirs <craig@paltechnologies.com>
 Description: Contains functions to generate pre-defined summary statistics from activPAL
-    events files.  The package also contains functions to produce informative 
+    events files <http:www.palt.com>.  The package also contains functions to produce informative 
     graphics that visualise physical activity behaviour and trends.  This includes
     generating graphs that align physical activity behaviour with additional time based 
     observations described by other data sets, such as sleep diaries and continuous glucose 
