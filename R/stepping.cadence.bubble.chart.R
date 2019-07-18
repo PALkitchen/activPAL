@@ -45,8 +45,6 @@ daily.stepping.activity.bubble.chart.file <-
     # Draw a bubble chart showing the daily distribution of stepping cadences
     file_id <- substr(file_name,1,gregexpr("Event",file_name)[[1]][1]-1)
 
-    print(paste("Processing file: ",file_id,sep=""))
-
     chart_data <- activpal.produce.bubble.chart.data(events_file)
     if(!is.null(chart_data)){
       activpal.bubble.chart(data = chart_data, output_folder = output_folder, title = file_id,

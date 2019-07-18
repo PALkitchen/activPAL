@@ -79,7 +79,6 @@ activity.summary.by.custom.period <-
       summary_data <- merge(summary_occurrences,summary_duration)
 
       summary_data <- activity.summary.column.headers(summary_data)
-      print(paste("Saving summary for events file ",file_name,sep=""))
       write.csv(summary_data,file = paste(output_folder,file_name,"_custom_summary.csv",sep=""),
                 row.names = FALSE)
 
@@ -192,7 +191,7 @@ activity.summary.folder <-
       activity_summary <- activity.summary.file(file_path = paste(input_folder,file_name,sep=""),time_periods)
       activity_summary <- activity.summary.column.headers(activity_summary)
       if(is.null(activity_summary)){
-        print(paste("Processed Events File: ",file_name,". No output generated.",sep=""))
+        warning(paste("Processed Events File: ",file_name,". No output generated.",sep=""))
       }else{
         file_name <- substr(file_name,1,gregexpr("Event",file_name)[[1]][1]-1)
         write.csv(activity_summary,file = paste(output_folder,file_name,"_",round(24 / nrow(time_periods),2),
@@ -200,7 +199,6 @@ activity.summary.folder <-
         activity_summary$id <- file_name
         activity_summary <- activity_summary[,c(ncol(activity_summary),(1:(ncol(activity_summary)-1)))]
         all_data[[i]] <- activity_summary
-        print(paste("Processed Events File: ",file_name,sep=""))
       }
     }
     all_data <- dplyr::bind_rows(all_data)

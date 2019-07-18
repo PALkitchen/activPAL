@@ -80,7 +80,6 @@ stepping.cadence.bands.folder <-
     colnames(cadence_summary) <- c("bout_duration", "weighted_median_cadence", "file_id")
     for (i in file_list){
         file_name <- substr(i,1,gregexpr("Event",i)[[1]][1]-1)
-        print(paste("Processing file: ",file_name,sep=""))
         events_data <- pre.process.events.file(i,input_folder)
         if(nrow(events_data) > 0){
           stepping_summary <- stepping.cadence.bands.file(events_data,lower_bound,upper_bound)
