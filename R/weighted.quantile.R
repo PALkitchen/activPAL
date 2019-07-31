@@ -3,6 +3,9 @@ weighted.quantile <- function(x, w, probs=0.25, na.rm=TRUE) {
   if(length(x) == 0 | length(w) == 0){
     return(NaN)
   }
+  if(length(x) == 1 | length(w) == 1){
+    return(x)
+  }
   value_table <- data.frame(x,w)
   value_table <- value_table[order(value_table$x),]
   value_table$rw <- cumsum(value_table$w)
@@ -11,6 +14,15 @@ weighted.quantile <- function(x, w, probs=0.25, na.rm=TRUE) {
   if (length(which(value_table$rw == pos)) == 1){
     return(value_table[which(value_table$rw == pos),]$x)
   }
+
+  if(pos < min(value_table$rw)){
+    return(value_table[1,]$x)
+  }
+
+  if(pos > max(value_table$rw)){
+    return(value_table[nrow(value_table),]$x)
+  }
+
   lower_median_pos <- max(which(value_table$rw <= pos))
   upper_median_pos <- min(which(value_table$rw >= pos))
 
