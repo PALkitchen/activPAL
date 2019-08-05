@@ -1,9 +1,12 @@
 activity_code <- c(0,1,2,2.1,2.2,3,3.1,3.2,4,5)
-activity_name <- c("sedentary",
+activity_category <- c("sedentary",
                    "standing",
                    "stepping", "stepping", "cycling",
                    "lying","lying","lying","non-wear",
                    "travel")
+activity_order <- c("lying","sedentary","travel",
+                    "standing","cycling","stepping",
+                    "non-wear")
 
 activity.with.overlay.chart.folder <-
   function(index_file_location,output_folder){
@@ -335,19 +338,14 @@ characterise.activity<-
   function(data){
     # Takes in a processed activpal activity file and adds a column classifying the activity by activity.code
     # Returns a data.frame with following columns time, interval, activity, cumulative_steps, steps, category
-    process.data<-data
-    process.data$category<-(-1)
-    process.data[which(process.data$activity==0),6]<-"sedentary"
-    process.data[which(process.data$activity==1),6]<-"standing"
-    process.data[which(process.data$activity %in% c(2,2.1)),6]<-"stepping"
-    process.data[which(process.data$activity %in% c(3,3.1,3.2)),6]<-"lying"
-    process.data[which(process.data$activity==4),6]<-"non-wear"
-    process.data[which(process.data$activity==2.2),6]<-"cycling"
-    process.data[which(process.data$activity==5),6]<-"travel"
+    activity_lookup <- data.frame(activity_code,activity_category)
+    process_data <- merge(data, activity_lookup,
+                          by.x = c("activity"), by.y = c("activity_code"))[, c(colnames(data), "activity_category")]
+    colnames(process_data)[ncol(process_data)] <- "category"
 
-    process.data$category <- factor(process.data$category, levels = c("lying","sedentary","travel","standing","cycling","stepping","non-wear"))
+    process_data$category <- factor(process_data$category, levels = activity_order)
 
-    return(process.data)
+    return(process_data)
   }
 
 split.events.file<-
