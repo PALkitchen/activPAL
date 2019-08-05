@@ -1,3 +1,10 @@
+activity_code <- c(0,1,2,2.1,2.2,3,3.1,3.2,4,5)
+activity_name <- c("sedentary",
+                   "standing",
+                   "stepping", "stepping", "cycling",
+                   "lying","lying","lying","non-wear",
+                   "travel")
+
 activity.with.overlay.chart.folder <-
   function(index_file_location,output_folder){
     #' Combines events file data with observational data across multiple events files
@@ -207,7 +214,7 @@ plot.dual.linear<-
                          palette(gray(seq(.8,.2,len = length(levels(overlay.data$label))))),
                          colour_values[c((length(colour_values)-7):length(colour_values))])
       overlay.data$group <- as.numeric(levels(overlay.data$group))[overlay.data$group]
-      overlay.data$group <- overlay.data$group / max(overlay.data$group) * 0.25
+      overlay.data$group <- overlay.data$group / max(overlay.data$group) * 0.35
 
       spiral<-ggplot2::ggplot()+
         ggplot2::geom_rect(data=activpal.data, ggplot2::aes(xmin=as.numeric(.data$DayTime), xmax=as.numeric(.data$DayTime)+.data$interval,
@@ -332,11 +339,11 @@ characterise.activity<-
     process.data$category<-(-1)
     process.data[which(process.data$activity==0),6]<-"sedentary"
     process.data[which(process.data$activity==1),6]<-"standing"
-    process.data[which(process.data$activity==2),6]<-"stepping"
+    process.data[which(process.data$activity %in% c(2,2.1)),6]<-"stepping"
     process.data[which(process.data$activity %in% c(3,3.1,3.2)),6]<-"lying"
     process.data[which(process.data$activity==4),6]<-"non-wear"
-    process.data[which(process.data$activity==5),6]<-"cycling"
-    process.data[which(process.data$activity==6),6]<-"travel"
+    process.data[which(process.data$activity==2.2),6]<-"cycling"
+    process.data[which(process.data$activity==5),6]<-"travel"
 
     process.data$category <- factor(process.data$category, levels = c("lying","sedentary","travel","standing","cycling","stepping","non-wear"))
 
