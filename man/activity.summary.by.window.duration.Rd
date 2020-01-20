@@ -5,8 +5,11 @@
 \title{Summarise activity data from a folder of activPAL events files
 into equal sized periods}
 \usage{
-activity.summary.by.window.duration(input_folder, output_folder,
-  window_duration = 2)
+activity.summary.by.window.duration(
+  input_folder,
+  output_folder,
+  window_duration = 2
+)
 }
 \arguments{
 \item{input_folder}{The filepath for the folder where the events files (format *Events.csv)
