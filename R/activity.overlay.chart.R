@@ -1,7 +1,7 @@
-activity_code <- c(0,1,2,2.1,2.2,3,3.1,3.2,4,5)
+activity_code <- c(0,1,2,2.1,3,3.1,3.2,4,5)
 activity_category <- c("sedentary",
                    "standing",
-                   "stepping", "stepping", "cycling",
+                   "stepping", "cycling",
                    "lying","lying","lying","non-wear",
                    "travel")
 activity_order <- c("lying","sedentary","travel",
