@@ -75,7 +75,8 @@ stepping.cadence.bands.folder <-
   function(input_folder,lower_bound,upper_bound,output_folder,generate_charts=FALSE){
     # Draw a stacked histogram showing the distribution of stepping cadence and median cadence
     # for different stepping durations
-    file_list <- list.files(input_folder,pattern = "Events*.csv")
+    file_list <- list.files(input_folder,pattern = ".csv")
+    file_list <- file_list[grep("Events",file_list)]
     cadence_summary <- data.frame(matrix(ncol = 3, nrow = 0))
     colnames(cadence_summary) <- c("bout_duration", "weighted_median_cadence", "file_id")
     for (i in file_list){
