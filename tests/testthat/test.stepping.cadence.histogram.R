@@ -1,7 +1,7 @@
 context("Cadence Histogram")
 library(activPAL)
 
-test_that("generate_cadence_histograme", {
+test_that("generate_cadence_histogram", {
 
   input_directory <- paste(system.file("extdata", "", package = "activPAL"),"/",sep="")
   output_directory <- paste(tempdir(),"/",sep="")
