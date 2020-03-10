@@ -249,3 +249,16 @@ activpal.file.process.exclude.days<-
     return(process.data)
 
   }
+
+get.device.serial <-
+  function(data){
+    # extracts the serial number from a file (assumes that the serial has the format APXXXXXX)
+    # returns a blank string if no device serial is found within data
+    serial_start <- regexpr("AP[[:digit:]]{6}",data)
+    if (serial_start > -1){
+      return(substr(data,serial_start,serial_start+7))
+    }else{
+      return ("")
+    }
+
+  }
