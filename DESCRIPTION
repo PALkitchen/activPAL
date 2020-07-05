@@ -17,15 +17,20 @@ Description: Contains functions to generate pre-defined summary statistics from 
 License: GPL-3
 Encoding: UTF-8
 LazyData: true
+LinkingTo: Rcpp
 Imports:
     dplyr,
     ggplot2,
+    readr,
     tidyr,
     lubridate,
     magrittr,
+    gridExtra,
+    png,
     methods,
-    devtools
-RoxygenNote: 6.1.1
+    devtools,
+    Rcpp
+RoxygenNote: 7.1.1
 Suggests: 
     testthat,
     knitr,
