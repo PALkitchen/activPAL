@@ -280,11 +280,11 @@ activity.summary.column.headers <-
     col_headers <- gsub("3.1 -","Primary Lying -", col_headers)
     col_headers <- gsub("3.2 -","Seconday Lying -", col_headers)
     col_headers <- gsub("1 -","Standing -", col_headers)
+    col_headers <- gsub("2.1 -","Cycling -", col_headers)
     col_headers <- gsub("2 -","Stepping -", col_headers)
     col_headers <- gsub("3 -","Lying -", col_headers)
     col_headers <- gsub("4 -","Non Wear -", col_headers)
-    col_headers <- gsub("5 -","Cycling -", col_headers)
-    col_headers <- gsub("6 -","Travelling -", col_headers)
+    col_headers <- gsub("5 -","Travelling -", col_headers)
     colnames(data) <- col_headers
     return(data)
   }
