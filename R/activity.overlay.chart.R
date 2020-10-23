@@ -112,7 +112,7 @@ activity.with.overlay.chart <-
       overlay_data$end_time <- as.POSIXct(overlay_data$end_time,tryFormat = c("%d/%m/%Y %H:%M","%d/%m/%Y %H:%M:%S"),tz="UTC")
     }
 
-    activity.with.overlay.single.chart(events_data,overlay_data,events_file_name,output_folder)
+    activity.with.overlay.single.chart(events_data,overlay_data,events_file_name,output_folder,"single")
 
   }
 
