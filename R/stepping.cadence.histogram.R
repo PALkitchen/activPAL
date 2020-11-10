@@ -75,8 +75,11 @@ stepping.cadence.bands.folder <-
   function(input_folder,lower_bound,upper_bound,output_folder,generate_charts=FALSE){
     # Draw a stacked histogram showing the distribution of stepping cadence and median cadence
     # for different stepping durations
-    file_list <- list.files(input_folder,pattern = ".csv")
-    file_list <- file_list[grep("Events",file_list)]
+    file_list <- list.files(input_folder,pattern = "Events[[:alnum:]]{0,2}.csv")
+    to_remove <- grep("[[:alnum:]]+.csv[[:graph:]]+",file_list)
+    if(length(to_remove) > 0){
+      file_list <- file_list[-grep("[[:alnum:]]+.csv[[:graph:]]+",file_list)]
+    }
     cadence_summary <- data.frame(matrix(ncol = 3, nrow = 0))
     colnames(cadence_summary) <- c("bout_duration", "weighted_median_cadence", "file_id")
     for (i in file_list){
@@ -94,7 +97,8 @@ stepping.cadence.bands.folder <-
         }
     }
     cadence_summary <- cadence_summary[,c(ncol(cadence_summary),1:(ncol(cadence_summary)-1))]
-    cadence_summary <- tidyr::spread(cadence_summary,2,3)
+    cadence_summary$group <- factor(cadence_summary$group, levels = unique(stepping_summary[order(stepping_summary$interval),]$group))
+    cadence_summary <- tidyr::pivot_wider(cadence_summary,names_from = 2, names_sort = TRUE, values_from = 3, values_fn = max)
     write.csv(cadence_summary,paste(output_folder,"median_cadence_summary.csv",sep=""),row.names = FALSE)
     return(cadence_summary)
   }

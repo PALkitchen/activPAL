@@ -16,6 +16,9 @@ load.events.file <-
   function(folder,file_name){
     # Loads an activPAL events file and processes the file
     events_file <- read.csv(paste(folder,file_name,sep=""))
+    if(colnames(events_file)[1] == "row.names"){
+      events_file <- events_file[,-c(1)]
+    }
     if(ncol(events_file) == 1){
       # Is not a csv file.  Load the file to see if it is semi-colon delimited
       events_file <- read.csv(paste(folder,file_name,sep=""),sep=";",skip=1)
@@ -23,6 +26,8 @@ load.events.file <-
         return(NULL)
       }
     }
+    events_file <- activpal.convert.events.extended.file(events_file)
+
     return(events_file)
   }
 
@@ -35,11 +40,12 @@ activpal.file.process<-
     if(ncol(process.data)==6){
       process.data$abs.sum <- 0
     }
-    process.data$Time <- as.POSIXct(process.data$Time*86400,origin="1899-12-30",tz="UTC")
-    process.data<-process.data[,1:7]
-    process.data<-process.data[which(process.data$Interval..s.>0),]
-
     process.data<-activpal.file.process.rename.row(process.data)
+
+    process.data$time <- as.POSIXct(process.data$time*86400,origin="1899-12-30",tz="UTC")
+    process.data<-process.data[,1:7]
+    process.data<-process.data[which(process.data$interval>0),]
+
     process.data<-activpal.file.process.merge.stepping(process.data)
     #process.data$steps<-0
     if(!is.null(valid.days)){
@@ -53,6 +59,22 @@ activpal.file.process<-
     return(process.data)
   }
 
+activpal.convert.events.extended.file <-
+  function(data){
+    if(length(which(colnames(data) == "Time.approx.")) >= 1){
+      if(rownames(data)[1] != 1){
+        data$time <- as.numeric(rownames(data))
+        data <- data[,c(ncol(data),2,4,3,6:10)]
+      }else{
+        data <- data[,c(1,3,5,4,7:11)]
+      }
+      rownames(data) <- 1:nrow(data)
+      return(data)
+    }else{
+      return(data)
+    }
+  }
+
 activpal.file.process.rename.row<-
   function(data){
     # Renames the initial row names of an imported activpal event file to facilitate easier processing
@@ -60,9 +82,12 @@ activpal.file.process.rename.row<-
     process.data<-data
     # for data for no absolute sum of difference values
     if (ncol(process.data)==6){
-      process.data$temp <- 1
+      process.data$temp_1 <- 1
+      process.data$temp_2 <- 1
+      process.data$temp_3 <- 1
     }
-    colnames(process.data)<-c("time","samples","interval","activity","cumulative_steps","MET.h","abs.sum.diff")
+    colnames(process.data)<-c("time","samples","interval","activity","cumulative_steps","MET.h",
+                              "abs.sum.x","abs.sum.y","abs.sum.z")
 
     return(process.data)
   }

@@ -184,7 +184,11 @@ activity.summary.by.window.duration <-
 
 activity.summary.folder <-
   function(input_folder,output_folder,time_periods){
-    file_list <- list.files(input_folder,pattern = "Events*.csv")
+    file_list <- list.files(input_folder,pattern = "Events[[:alnum:]]{0,2}.csv")
+    to_remove <- grep("[[:alnum:]]+.csv[[:graph:]]+",file_list)
+    if(length(to_remove) > 0){
+      file_list <- file_list[-grep("[[:alnum:]]+.csv[[:graph:]]+",file_list)]
+    }
     all_data <- list(length=length(file_list))
     for (i in (1:length(file_list))){
       file_name <- file_list[i]

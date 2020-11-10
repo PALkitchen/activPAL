@@ -2,9 +2,9 @@ activity_code <- c(0,1,2,2.1,3,3.1,3.2,4,5)
 activity_category <- c("sedentary",
                    "standing",
                    "stepping", "cycling",
-                   "lying","lying","lying","non-wear",
+                   "lying","lying","secondary lying","non-wear",
                    "travel")
-activity_order <- c("lying","sedentary","travel",
+activity_order <- c("lying","secondary lying","sedentary","travel",
                     "standing","cycling","stepping",
                     "non-wear")
 
@@ -180,7 +180,7 @@ activity.with.overlay.single.chart<-
     overlay.data$reverse.start<-as.numeric(overlay.data$time)
     overlay.data$reverse.end<-as.numeric(overlay.data$time+overlay.data$duration)
 
-    activity_colours <- c("blue","yellow","pink","green","purple","red","grey50")
+    activity_colours <- c("#009EE2","#BBFFFF","#FFDF00","#F4858D","#38D305","#7916B1","#FF0000","grey50")
     overlay_colours <- c("#e41a1c","#377eb8","#4daf4a","#984ea3","#ff7f00","#ffff33","#a65628","#f781bf")
     overlay_colours <- overlay_colours[c(1:length(levels(overlay.data$group)))]
 

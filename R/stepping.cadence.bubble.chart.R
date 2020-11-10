@@ -33,7 +33,12 @@ daily.stepping.activity.bubble.chart <-
       stop("A valid folder to save the generated output has not been provided.")
     }
 
-    file_list <- list.files(input_folder,pattern = "Events*.csv")
+    file_list <- list.files(input_folder,pattern = "Events[[:alnum:]]{0,2}.csv")
+    to_remove <- grep("[[:alnum:]]+.csv[[:graph:]]+",file_list)
+    if(length(to_remove) > 0){
+      file_list <- file_list[-grep("[[:alnum:]]+.csv[[:graph:]]+",file_list)]
+    }
+
     for (i in (1:length(file_list))){
       bubble_chart_data <- pre.process.events.file(file_list[i],input_folder)
       daily.stepping.activity.bubble.chart.file(bubble_chart_data,output_folder,file_list[i])
