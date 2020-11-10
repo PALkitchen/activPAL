@@ -1,7 +1,7 @@
 Package: activPAL
 Type: Package
 Title: Advanced Processing and Chart Generation from activPAL Events Files 
-Version: 0.1.5
+Version: 0.1.6
 Authors@R: c(
     person("Craig", "Speirs", email = "craig@paltechnologies.com", role = c("aut", "cre")),
     person("Kate", "Lyden", email = "kate@paltechnologies.com", role = c("ctb")),
