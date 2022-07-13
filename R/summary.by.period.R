@@ -10,6 +10,9 @@ activpal.summary.by.period <-
     #'     The generated summary activity table for each events file is saved to a csv file,
     #'     while an additional csv file containing the summaries across all the processed
     #'     events files is also saved.
+    #'
+    #'     If the window duration is not a factor of 24, some summary period may encompass events
+    #'     spanning two distinct days
     #' @param location_folder The filepath for the folder where the events files to be processed
     #'     are saved
     #' @param output_folder The filepath for the folder where the csv summary files are saved
@@ -27,6 +30,7 @@ activpal.summary.by.period <-
     }
 
     file_list <- list.files(location_folder, pattern = "[e|E]vents")
+    file_list <- file_list[grep("vents.csv",file_list)]
     all_summary <- list()
     for(i in (1:length(file_list))){
       single_file_summary <- activpal.summary.by.period.single.file(location_folder, file_list[i],window_duration)
@@ -250,7 +254,13 @@ activpal.detailed.file.process<-
       process_data$abs.sum <- 0
     }
     process_data$Time <- as.POSIXct(process_data$Time*86400,origin="1899-12-30",tz="UTC")
-    process_data <- process_data[,1:7]
+    if(ncol(process_data) < 9){
+      process_data <- process_data[,1:7]
+      process_data$absDiffY <- 0
+      process_data$absDiffZ <- 0
+    }else{
+      process_data <- process_data[,1:9]
+    }
     process_data <- process_data[which(process_data$Interval..s.>0),]
 
     process_data <- activpal.file.process.rename.row(process_data)
@@ -281,9 +291,11 @@ activpal.add.stepping.data <-
     data$stepping_bout <- stepping_bout
 
     stepping_summary <- data %>%
-      dplyr::filter(.data@stepping_bout > 0) %>%
-      dplyr::group_by(.data@stepping_bout) %>%
-      dplyr::summarise(steps_count = sum(.data@steps), step_duration = sum(.data@interval), cadence = .data@steps_count / (.data@step_duration / 60))
+      dplyr::filter(.data$stepping_bout > 0) %>%
+      dplyr::group_by(.data$stepping_bout) %>%
+      dplyr::summarise(steps_count = sum(.data$steps),
+                       step_duration = sum(.data$interval),
+                       cadence = .data$steps_count / (.data$step_duration / 60))
 
     data <- dplyr::left_join(data, stepping_summary)
 
@@ -300,5 +312,4 @@ get.device.serial <-
     }else{
       return ("")
     }
-
   }
