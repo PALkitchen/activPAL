@@ -5,13 +5,23 @@
 \title{Summarise activity data from a folder of activPAL events files
 in user defined periods}
 \usage{
-activity.summary.by.custom.period(location_file, output_folder)
+activity.summary.by.custom.period(
+  location_file,
+  output_folder,
+  minimum_valid_wear = 20
+)
 }
 \arguments{
 \item{location_file}{The filepath to a csv file containing the path for a group
 of csv files to be processed}
 
 \item{output_folder}{The filepath for the folder where the csv summary files are saved}
+
+\item{minimum_valid_wear}{The minimum duration of valid wear time required for
+a day to be included in the analysis.
+Valid daily wear time is the total daily wear time, excluding periods of wear
+classified as non-wear (activity code - 4)
+Default - 20 hours}
 }
 \description{
 activity.summary.custom.period reads in a csv file containing a list

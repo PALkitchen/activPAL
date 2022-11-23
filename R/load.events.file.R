@@ -6,22 +6,42 @@ load.step.times <-
   }
 
 pre.process.events.file <-
-  function(file_name,folder = ""){
+  function(file_name,folder = "", minimum_valid_wear = 20){
     events_file <- load.events.file(folder,file_name)
-    events_file <- activpal.file.process(events_file)
+    events_file <- activpal.file.process(events_file, wear.time.minimum = minimum_valid_wear * 3600)
     return(events_file)
   }
 
 load.events.file <-
   function(folder,file_name){
+    # Load cell A1 to test if the events file contains a header
+    events_file <- read.csv(paste(folder,file_name,sep=""), nrows=1, header = FALSE)
+    if(events_file[1,1] == "**header**"){
+      events_file <- read.csv(paste(folder,file_name,sep=""), header = FALSE)
+      data_start <- grep("**data**",events_file$V1,fixed=TRUE)
+      if(length(data_start) == 0){
+        return(NULL)
+      }
+      events_file <- read.csv(paste(folder,file_name,sep=""), skip = data_start[1]+1)
+    }else {
+      events_file <- read.csv(paste(folder,file_name,sep=""))
+    }
     # Loads an activPAL events file and processes the file
-    events_file <- read.csv(paste(folder,file_name,sep=""))
     if(colnames(events_file)[1] == "row.names"){
       events_file <- events_file[,-c(1)]
     }
     if(ncol(events_file) == 1){
       # Is not a csv file.  Load the file to see if it is semi-colon delimited
-      events_file <- read.csv(paste(folder,file_name,sep=""),sep=";",skip=1)
+      if(events_file[1,1] == "**header**"){
+        events_file <- read.csv(paste(folder,file_name,sep=""), header = FALSE)
+        data_start <- grep("**data**",events_file$V1,fixed=TRUE)
+        if(length(data_start) == 0){
+          return(NULL)
+        }
+        events_file <- read.csv(paste(folder,file_name,sep=""), sep=";", skip = data_start[1]+1)
+      }else {
+        events_file <- read.csv(paste(folder,file_name,sep=""), sep=";", skip=1)
+      }
       if(ncol(events_file) == 1){
         return(NULL)
       }

@@ -1,5 +1,5 @@
 activity.summary.by.custom.period <-
-  function(location_file,output_folder){
+  function(location_file,output_folder,minimum_valid_wear = 20){
     #' Summarise activity data from a folder of activPAL events files
     #' in user defined periods
     #' @description activity.summary.custom.period reads in a csv file containing a list
@@ -13,6 +13,11 @@ activity.summary.by.custom.period <-
     #' @param location_file The filepath to a csv file containing the path for a group
     #'     of csv files to be processed
     #' @param output_folder The filepath for the folder where the csv summary files are saved
+    #' @param minimum_valid_wear The minimum duration of valid wear time required for
+    #'     a day to be included in the analysis.
+    #'     Valid daily wear time is the total daily wear time, excluding periods of wear
+    #'     classified as non-wear (activity code - 4)
+    #'     Default - 20 hours
 
     #' @importFrom devtools load_all
     #' @import utils
@@ -47,7 +52,7 @@ activity.summary.by.custom.period <-
       summary_periods$end_time <-
         as.numeric(as.POSIXct(summary_periods$end_time,
                               format = "%d/%m/%Y %H:%M", tz="UTC"))
-      events_file <- pre.process.events.file(as.character(file_list[i,1]))
+      events_file <- pre.process.events.file(as.character(file_list[i,1]), "", minimum_valid_wear)
       events_file$event_start <- as.numeric(events_file$time)
       events_file$event_end <- events_file$event_start + events_file$interval
       step_start <- load.step.times(as.character(file_list[i,1]))
@@ -99,7 +104,7 @@ activity.summary.by.custom.period <-
 
 activity.summary.file.single.custom.period <-
   function(events_file,start_period,end_period){
-    #' @import magrittr
+    #' @import dplyr
     events_file$start_count <- start_period
     events_file$end_count <- end_period
 
@@ -245,7 +250,8 @@ activity.summary.file <-
 
 activity.summary.file.single.period <-
   function(events_file,step_times,start_period,end_period){
-    #' @import magrittr
+    #' @import dplyr
+    #' @import tidyr
     events_file$start_count <- start_period
     events_file$end_count <- end_period
 
