@@ -280,7 +280,7 @@ activpal.file.process.exclude.days<-
     # Calculate the minimum activity time necessary for a day to be considered valid
     min.activity.time<-86400-exclude.time
     # Remove single events that exceed the minimum activity duration (remove historic files with large lagging upright / sedentary)
-    process.data<-process.data[which(process.data$interval<min.activity.time),]
+    process.data<-process.data[which(process.data$interval<86400),]
     # Create a subset with only valid activity data
     valid.activity<-process.data[which(process.data$activity!=4),]
     # Calculate the total activity time for each day
