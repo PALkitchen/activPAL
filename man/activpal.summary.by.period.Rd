@@ -28,4 +28,7 @@ activity.summary.by.period processes all the events files (format *Events.csv)
     The generated summary activity table for each events file is saved to a csv file,
     while an additional csv file containing the summaries across all the processed
     events files is also saved.
+
+    If the window duration is not a factor of 24, some summary period may encompass events
+    spanning two distinct days
 }

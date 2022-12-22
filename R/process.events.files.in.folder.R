@@ -1,7 +1,6 @@
 process.events.file.folder <-
-  function(folder){
+  function(folder, minimum_wear_time = 20){
     # Assumes that the name of the events files contain the text Events in the file name
-    #    file.names <-list.files(process.data, pattern="Events*.csv",recursive = TRUE)
     file_names <- list.files(folder, pattern="*.csv",recursive = FALSE)
     file_names <- file_names[grep("EventsEx",file_names)]
     events_data <- list()
@@ -15,7 +14,7 @@ process.events.file.folder <-
       events_file_days <- as.data.frame(unique(as.Date(events_file$Time)))
       colnames(events_file_days) <- "Date"
 
-      events_file <- activpal.extended.events.file.process(events_file, wear_time_minimum = 20 * 3600)
+      events_file <- activpal.extended.events.file.process(events_file, wear_time_minimum = minimum_wear_time * 3600)
       if(nrow(events_file) > 0){
         events_file$Date <- as.Date(events_file$time)
 
@@ -38,7 +37,7 @@ process.events.file.folder <-
   }
 
 process.events.file <-
-  function(folder, file_name, validation_list){
+  function(folder, file_name, validation_list, minimum_wear_time, prefix_delimiter = NULL, prefix_length = NULL, pal_batch_format = FALSE){
     # Assumes that the name of the events files contain the text Events in the file name
     events_file <- read.csv(paste(folder,file_name,sep=""), row.names = NULL, sep=";", skip = 1, stringsAsFactors = FALSE)
     colnames(events_file) <- c(tail(colnames(events_file),-1),"")
@@ -48,11 +47,11 @@ process.events.file <-
     events_file_days <- as.data.frame(unique(as.Date(events_file$Time)))
     colnames(events_file_days) <- "Date"
 
-    events_file <- activpal.extended.events.file.process(events_file, wear_time_minimum = 20 * 3600)
+    events_file <- activpal.extended.events.file.process(events_file, wear_time_minimum = minimum_wear_time * 3600)
 
     if(nrow(events_file) > 0){
       events_file$Date <- as.Date(events_file$time)
-      uid <- parse.file.name(file_name)
+      uid <- parse.file.name(file_name, prefix_delimiter, prefix_length)
       pal_serial <- parse.device.serial(file_name)
 
       events_file$uid <- uid
@@ -68,9 +67,22 @@ process.events.file <-
         }
       }
 
+      events_file <- slice.events.file(events_file,"06:00","18:00")
+
       events_file_days$valid <- "invalid"
-      events_file_days[which(events_file_days$Date %in% unique(events_file$Date)),]$valid <- "valid"
+      events_file_days[which(events_file_days$Date %in% unique(events_file$Date)),]$valid <- rep("valid",length(which(events_file_days$Date %in% unique(events_file$Date))))
       return (list(events_file, events_file_days))
     }
     return(NULL)
+  }
+
+slice.events.file <-
+  function(events_data, start_time, end_time){
+    start_period <- lubridate::hm(start_time)
+    end_period <- lubridate::hm(end_time)
+
+    start_date <- as.Date(events_data[1,]$time)
+    end_date <- as.Date(events_data[nrow(events_data),]$time + events_data[nrow(events_data),]$interval)
+
+    return(events_data)
   }

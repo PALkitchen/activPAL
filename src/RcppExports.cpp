@@ -5,6 +5,11 @@
 
 using namespace Rcpp;
 
+#ifdef RCPP_USE_GLOBAL_ROSTREAM
+Rcpp::Rostream<true>&  Rcpp::Rcout = Rcpp::Rcpp_cout_get();
+Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
+#endif
+
 // bout_end
 std::vector<double> bout_end(std::vector<int> seq, std::vector<double> activity, std::vector<double> interval, int size, int window_size);
 RcppExport SEXP _activPAL_bout_end(SEXP seqSEXP, SEXP activitySEXP, SEXP intervalSEXP, SEXP sizeSEXP, SEXP window_sizeSEXP) {

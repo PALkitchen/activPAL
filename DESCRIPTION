@@ -1,7 +1,7 @@
 Package: activPAL
 Type: Package
 Title: Advanced Processing and Chart Generation from activPAL Events Files 
-Version: 0.1.7
+Version: 0.3.0
 Authors@R: c(
     person("Craig", "Speirs", email = "craig@palt.com", role = c("aut", "cre")),
     person("Douglas", "Maxwell", email = "douglas@palt.com", role = c("ctb")),
@@ -29,7 +29,7 @@ Imports:
     methods,
     devtools,
     Rcpp
-RoxygenNote: 7.2.2
+RoxygenNote: 7.2.3
 Suggests: 
     testthat,
     knitr,

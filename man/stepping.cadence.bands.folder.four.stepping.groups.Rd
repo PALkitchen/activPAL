@@ -5,8 +5,12 @@
 \title{Processes events files to produce histograms showing the distribution of stepping and
     weighted median stepping cadence across four groups of stepping bout duration.}
 \usage{
-stepping.cadence.bands.folder.four.stepping.groups(input_folder,
-  output_folder, generate_charts = TRUE)
+stepping.cadence.bands.folder.four.stepping.groups(
+  input_folder,
+  output_folder,
+  generate_charts = TRUE,
+  minimum_valid_wear = 20
+)
 }
 \arguments{
 \item{input_folder}{The filepath for the folder where the events files to be processed are saved}

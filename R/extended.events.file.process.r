@@ -1,5 +1,5 @@
 activpal.extended.events.file.process<-
-  function(data, wear_time_minimum = 72000){
+  function(data, wear_time_minimum = 72000, pal_batch_format = FALSE){
     # takes in an unprocessed activpal file, formatting and processing the file to allow further analysis
     # data = an unprocessed activpal event file
     # wear.time.minimum = minimum wear time required for a day to be considered valid
@@ -7,7 +7,7 @@ activpal.extended.events.file.process<-
 
     process_data <- extended.events.file.process.rename.row(process_data)
     process_data <- extended.events.file.process.split.day(process_data)
-    process_data <- extended.events.file.process.exclude.days(process_data,(86400 - wear_time_minimum))
+    process_data <- extended.events.file.process.exclude.days(process_data,(86400 - wear_time_minimum), pal_batch_format)
     if(nrow(process_data) != 0){
       process_data <- extended.events.file.process.merge.stepping(process_data)
     }
@@ -83,7 +83,7 @@ extended.events.file.process.split.day.run<-
   }
 
 extended.events.file.process.exclude.days<-
-  function(data, exclude_time=14400){
+  function(data, exclude_time=14400, pal_batch_format = FALSE){
     # Removes days where the total time for non-valid events (either no information available or activity = 4)
     # data = the process activpal file
     # exclude.time = Threshold time for excluding days based on non-activity
@@ -92,15 +92,24 @@ extended.events.file.process.exclude.days<-
     exclude_data$date <- as.Date(exclude_data$time)
     # Calculate the minimum activity time necessary for a day to be considered valid
     min_activity_time <- 86400 - exclude_time
+    # Calculate the total wear time for each day
+    daily_wear_times <- data.frame(tapply(exclude_data$interval,exclude_data$date,sum))
+    colnames(daily_wear_times) <- c("duration")
+    daily_wear_times$date <- as.Date(rownames(daily_wear_times),format = "%Y-%m-%d")
+    daily_wear_times <- daily_wear_times[which(daily_wear_times$duration > 86340),]
     # Create a subset with only valid activity data
     exclude_data <- exclude_data[which(exclude_data$activity!=4),]
+    exclude_data <- exclude_data[which(exclude_data$activity!=-1),]
     # Calculate the total activity time for each day
     daily_activity_times <- data.frame(tapply(exclude_data$interval,exclude_data$date,sum))
     colnames(daily_activity_times)<-c("duration")
     daily_activity_times$date <- as.Date(rownames(daily_activity_times),format = "%Y-%m-%d")
-    # Select only those days with the pre-requisite level of activity
+    # Select only those days with the pre-requisite level of activity and 24 hours of total wear
     daily_activity_times <- daily_activity_times[which(daily_activity_times$duration >= min_activity_time),]
     data <- data[which(as.Date(data$time) %in% daily_activity_times$date),]
+    if(pal_batch_format){
+      data <- data[which(as.Date(data$time) %in% daily_wear_times$date),]
+    }
     return(data)
   }
 
@@ -119,8 +128,8 @@ extended.events.file.process.merge.stepping<-
     one <- c(-1,data$activity)
     two <- c(data$activity,-1)
 
-    one_date <- c(-1,as.Date(data$time))
-    two_date <- c(as.Date(data$time),-1)
+    one_date <- c(as.Date(data[1,]$time),as.Date(data$time))
+    two_date <- c(as.Date(data$time),as.Date(data[nrow(data),]$time))
 
     # Calculate rows where stepping bouts commence
     stepping_bout_start <- which((one!=2 & two==2) | (one == 2 & two == 2 & one_date != two_date))
@@ -137,6 +146,8 @@ extended.events.file.process.merge.stepping<-
     data[stepping_bout_start,]$steps <- stepping_bout_steps
     data[stepping_bout_start,]$MET_h <- stepping_bout_met_h
 
-    data <- data[-which(data$activity == 2 & data$steps == 0),]
+    if(length(which(data$activity == 2 & data$steps == 0)) > 0){
+      data <- data[-which(data$activity == 2 & data$steps == 0),]
+    }
     return(data)
   }

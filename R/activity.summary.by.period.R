@@ -133,7 +133,7 @@ activity.summary.file.single.custom.period <-
 ###########################################################
 
 activity.summary.by.window.duration <-
-  function(input_folder,output_folder,window_duration = 2){
+  function(input_folder,output_folder,window_duration = 2,minimum_valid_wear = 20){
     #' Summarise activity data from a folder of activPAL events files
     #' into equal sized periods
     #' @description activity.summary.window processes all the events files (format *Events.csv)
@@ -149,6 +149,9 @@ activity.summary.by.window.duration <-
     #' @param output_folder The filepath for the folder where the csv summary files are to be saved
     #' @param window_duration The size of each bucket in hours that the data is to be summarised.
     #'     Default - 2 hours.
+    #' @param minimum_valid_wear The minimum valid wear time required for a day to be included
+    #'     in the analysis
+    #'     Default - 20 hours.
 
     #' @import utils
     #' @export
@@ -182,13 +185,13 @@ activity.summary.by.window.duration <-
     time_periods <- data.frame(labels,start_seconds,end_seconds)
     time_periods$labels <- factor(time_periods$labels, levels = labels)
 
-    all_data <- activity.summary.folder(input_folder,output_folder,time_periods)
+    all_data <- activity.summary.folder(input_folder,output_folder,time_periods,minimum_valid_wear = 20)
     write.csv(all_data,paste(output_folder,"activity_summary_all_files.csv",sep=""),row.names = FALSE)
     return(all_data)
   }
 
 activity.summary.folder <-
-  function(input_folder,output_folder,time_periods){
+  function(input_folder,output_folder,time_periods,minimum_valid_wear = 20){
     file_list <- list.files(input_folder,pattern = "Events[[:alnum:]]{0,2}.csv")
     to_remove <- grep("[[:alnum:]]+.csv[[:graph:]]+",file_list)
     if(length(to_remove) > 0){
@@ -197,7 +200,7 @@ activity.summary.folder <-
     all_data <- list(length=length(file_list))
     for (i in (1:length(file_list))){
       file_name <- file_list[i]
-      activity_summary <- activity.summary.file(file_path = paste(input_folder,file_name,sep=""),time_periods)
+      activity_summary <- activity.summary.file(file_path = paste(input_folder,file_name,sep=""),time_periods,minimum_valid_wear = 20)
       activity_summary <- activity.summary.column.headers(activity_summary)
       if(is.null(activity_summary)){
         warning(paste("Processed Events File: ",file_name,". No output generated.",sep=""))
@@ -217,9 +220,9 @@ activity.summary.folder <-
   }
 
 activity.summary.file <-
-  function(file_path,time_periods){
+  function(file_path,time_periods,minimum_valid_wear = 20){
 
-    events_file <- pre.process.events.file(file_path)
+    events_file <- pre.process.events.file(file_path,minimum_valid_wear = 20)
     if(nrow(events_file) > 0 ){
 
       step_start <- load.step.times(file_path)

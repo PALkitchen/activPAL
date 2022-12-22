@@ -8,7 +8,8 @@ into equal sized periods}
 activity.summary.by.window.duration(
   input_folder,
   output_folder,
-  window_duration = 2
+  window_duration = 2,
+  minimum_valid_wear = 20
 )
 }
 \arguments{
@@ -19,6 +20,10 @@ to be processed are saved}
 
 \item{window_duration}{The size of each bucket in hours that the data is to be summarised.
 Default - 2 hours.}
+
+\item{minimum_valid_wear}{The minimum valid wear time required for a day to be included
+in the analysis
+Default - 20 hours.}
 }
 \description{
 activity.summary.window processes all the events files (format *Events.csv)
