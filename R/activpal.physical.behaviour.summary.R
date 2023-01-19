@@ -140,7 +140,7 @@ generate.physical.behaviour.summary <-
     skipped_files <- c()
     minimum_wear_minutes <- 3600 * minimum_wear_time
     for(i in (1:length(file_names))){
-      # tryCatch({
+      tryCatch({
         events_import <- process.events.file(input_folder, file_names[i], validation_data, minimum_wear_time, prefix_delimiter, prefix_length)
         file_uid <- parse.file.name(file_names[i], prefix_delimiter, prefix_length)
 
@@ -217,30 +217,30 @@ generate.physical.behaviour.summary <-
           no_valid_days <- c(no_valid_days, file_names[i])
         }
         message(paste("Processed File ",i," of ",length(file_names),sep=""))
-      # },
-      # error = function(c){
-      #   if(length(custom_period_summary) >= (i-1) & length(custom_period_summary) > 0){
-      #     custom_period_summary[[i]] <- NULL
-      #   }
-      #   calendar_day_summary[[i]] <<- NULL
-      #   waking_day_summary[[i]] <<- NULL
-      #   walk_test_2_min_data[[i]] <<- NULL
-      #   walk_test_6_min_data[[i]] <<- NULL
-      #   walk_test_12_min_data[[i]] <<- NULL
-      #   walk_test_30_s_data[[i]] <<- NULL
-      #   bouts_breaks_data[[i]] <<- NULL
-      #   non_wear_data[[i]] <<- NULL
-      #   sedentary_data[[i]] <<- NULL
-      #   upright_data[[i]] <<- NULL
-      #   stepping_data[[i]] <<- NULL
-      #   travel_data[[i]] <<- NULL
-      #   mvpa_data[[i]] <<- NULL
-      #   time_first_step_data[[i]] <<- NULL
-      #   daily_stepping_data[[i]] <<- NULL
-      #   skipped_files <<- c(skipped_files, file_names[i])
-      #   message(paste("An error was encountered processing ", file_names[i],
-      #                 ". Outcomes have not been generated for this file.", sep=""))
-      # })
+      },
+      error = function(c){
+        if(length(custom_period_summary) >= (i-1) & length(custom_period_summary) > 0){
+          custom_period_summary[[i]] <- NULL
+        }
+        calendar_day_summary[[i]] <<- NULL
+        waking_day_summary[[i]] <<- NULL
+        walk_test_2_min_data[[i]] <<- NULL
+        walk_test_6_min_data[[i]] <<- NULL
+        walk_test_12_min_data[[i]] <<- NULL
+        walk_test_30_s_data[[i]] <<- NULL
+        bouts_breaks_data[[i]] <<- NULL
+        non_wear_data[[i]] <<- NULL
+        sedentary_data[[i]] <<- NULL
+        upright_data[[i]] <<- NULL
+        stepping_data[[i]] <<- NULL
+        travel_data[[i]] <<- NULL
+        mvpa_data[[i]] <<- NULL
+        time_first_step_data[[i]] <<- NULL
+        daily_stepping_data[[i]] <<- NULL
+        skipped_files <<- c(skipped_files, file_names[i])
+        message(paste("An error was encountered processing ", file_names[i],
+                      ". Outcomes have not been generated for this file.", sep=""))
+      })
     }
     if(length(custom_period_summary) > 0){
       message("Outputting Custom Period Output")
