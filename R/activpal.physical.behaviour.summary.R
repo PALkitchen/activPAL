@@ -3,21 +3,34 @@ generate.physical.behaviour.summary <-
            prefix_delimiter = NULL, prefix_length = NULL, fill_gaps = FALSE,
            minimum_wear_time = 20, anonymise = FALSE,
            generate_chart = TRUE, standard_scales = FALSE, sort_order = "MEDIAN_DAILY_STEP_COUNT"){
-    #' Generates a PDF that visualises a range of summary physical behaviour outcomes for a group of individuals.
-    #' The physical behaviour outcomes are also exported in two csv files which report the outcomes
-    #' aggregated by calendar day and EventsExended classified waking day / time in bed
+    #' Generates a PDF that visualises a range of summary physical behaviour outcomes for a group of individuals. \cr
+    #' Outcomes are also exported in two csv files, with outcomes aggregated by calendar day and
+    #' EventsExended classified waking day / time in bed
     #'
     #' @description activity.summary.window processes all the extended events files (format *EventsEx.csv)
     #'     in a folder and produces a chart showing a number of summary physical behaviour outcomes for
-    #'     the files.  The outcomes are grouped into three groups:
-    #'     1. Mean daily time in different posture classes (time in bed, sedentary, upright and stepping)
-    #'     2. Volume based measures of activity participation (step count, stepping duration and intensity,
+    #'     the files. The outcomes are grouped into three groups:
+    #'     \itemize{
+    #'     \item Mean daily time in different posture classes (time in bed, sedentary, upright and stepping)
+    #'     \item Volume based measures of activity participation (step count, stepping duration and intensity,
     #'        time spent in different travel associated activities)
-    #'     3. Measures of physical ability (time to first step, maximum step count, median cadence of
+    #'     \item Measures of physical ability (time to first step, maximum step count, median cadence of
     #'        stepping bouts containing short (< 1 minute) and long (> 1 minute) periods of stepping)
-    #'
+    #'     }
     #'     If matching rise time files (format *RiseSitData.csv) are included in the folder an additional
-    #'     column will be inserted to show the median rise time.
+    #'     column will be inserted to show the median rise time. \c
+    #'
+    #'     If the function is unable to process one or more of the extended events files, an additional
+    #'     file (yyMMMdd_HHMM_FileErrorList.csv) will be generated with a list of the extended events
+    #'     files that were not processed and details of the error that prevented the file from being
+    #'     processed. Extended events files modified in Microsoft Excel may fail to process.
+    #'
+    #'     The error message \strong{The Events Extended file had an unexpected format and could not be processed}
+    #'     indicates the file may have been altered. For these files, Re-exporting the Events Extended
+    #'     file from PAL Analysis / PAL Batch may rectify the issue preventing the file from being
+    #'     processed.
+
+    #'
     #' @param input_folder The folder where the events files (format *EventsEx.csv)
     #'     and optional rise time files (format *RiseSitData.csv) to be processed are saved.
     #' @param period_file The location of a csv files containing the details of custom periods to
@@ -208,7 +221,7 @@ generate.physical.behaviour.summary <-
             time_first_step_data[[i]] <- build.time.to.first.step.summary(events_file_data)
 
             daily_stepping_data[[i]] <- events_file_data %>%
-              dplyr::group_by(.data$uid, date = .data$Date) %>%
+              dplyr::group_by(uid, date = Date) %>%
               dplyr::summarise(steps = sum(.data$steps))
           }else{
             no_valid_days <- c(no_valid_days, file_names[i])
@@ -237,7 +250,9 @@ generate.physical.behaviour.summary <-
         mvpa_data[[i]] <<- NULL
         time_first_step_data[[i]] <<- NULL
         daily_stepping_data[[i]] <<- NULL
-        skipped_files <<- c(skipped_files, file_names[i])
+        skipped_files <<- c(skipped_files, paste(file_names[i],";",
+                                                 substr(paste(c,sep=""), 1, regexpr(":",paste(c,sep=""))[1]-1),";",
+                                                 substr(paste(c,sep=""), regexpr(":",paste(c,sep=""))[1]+2, nchar(paste(c,sep=""))-1),sep=""))
         message(paste("An error was encountered processing ", file_names[i],
                       ". Outcomes have not been generated for this file.", sep=""))
       })
@@ -268,8 +283,7 @@ generate.physical.behaviour.summary <-
     if(length(skipped_files) > 0){
       message(paste("Successfully generated outcomes for ",i - length(skipped_files), " EventsEx files\n",
                     length(skipped_files), " files were not processed", sep=""))
-      skipped_file_list <- data.frame(skipped_files)
-      colnames(skipped_file_list) <- c("The following files were not processed")
+      skipped_file_list <- tidyr::separate(data.frame(skipped_files), sep = ";", col = 1, into = c("The following files were not processed","Error Trace","Error Message"))
       error_file_name <- paste(format(Sys.time(), "%y%b%d_%H%M"),"_FileErrorList.csv",sep="")
       write.csv(skipped_file_list,error_file_name, row.names=FALSE)
       message(paste("Details of the files that were not processed has been saved to the file ",error_file_name,sep=""))
@@ -333,7 +347,7 @@ generate.physical.behaviour.summary <-
 
       #####
       valid_day_summary <- valid_days %>%
-        dplyr::group_by(.data$uid, category = .data$valid) %>%
+        dplyr::group_by(uid, category = .data$valid) %>%
         dplyr::summarise(days = n()) %>%
         tidyr::pivot_wider(names_from = "category", values_from = "days", values_fill = list(days = 0))
       sedentary_summary <- sedentary_data %>%
@@ -349,7 +363,7 @@ generate.physical.behaviour.summary <-
       non_wear_summary <- non_wear_data[,c(1,2,6)] %>%
         tidyr::pivot_wider(names_from = "activity", values_from = "duration_by_day", values_fill = list(duration_by_day = 0))
       daily_stepping_summary <- daily_stepping_data %>%
-        dplyr::group_by(.data$uid) %>%
+        dplyr::group_by(uid) %>%
         dplyr::summarise(lower_quartile_daily_steps = quantile(.data$steps, 0.25),
                          median_daily_steps = stats::median(.data$steps),
                          upper_quartile_daily_steps = quantile(.data$steps, 0.75))
@@ -358,7 +372,7 @@ generate.physical.behaviour.summary <-
       preferred_cadence_summary <- preferred_cadence_data %>%
         tidyr::pivot_wider(names_from="group",values_from = "median_cadence", values_fill = list(median_cadence = 0))
       peak_30_s <- walk_test_30_s_data %>% dplyr::mutate(category = "Max 30s step") %>%
-        dplyr::group_by(.data$uid) %>%
+        dplyr::group_by(uid) %>%
         dplyr::filter("steps" == max("steps")) %>%
         dplyr::filter("duration" == min("duration")) %>%
         dplyr::distinct() %>%
@@ -366,7 +380,7 @@ generate.physical.behaviour.summary <-
         tidyr::pivot_wider(names_from = "category", values_from = c("steps", "duration"), values_fill = list(steps = 0, duration = 0))
       peak_2_min <- walk_test_2_min_data %>%
         dplyr::mutate(category = "Walk 2 Min") %>%
-        dplyr::group_by(.data$uid) %>%
+        dplyr::group_by(uid) %>%
         dplyr::filter("steps" == max("steps")) %>%
         dplyr::filter("duration" == min("duration")) %>%
         dplyr::distinct() %>%
@@ -374,7 +388,7 @@ generate.physical.behaviour.summary <-
         tidyr::pivot_wider(names_from = "category", values_from = c("steps", "duration"), values_fill = list(steps = 0, duration = 0))
       peak_6_min <- walk_test_6_min_data %>%
         dplyr::mutate(category = "Walk 6 Min") %>%
-        dplyr::group_by(.data$uid) %>%
+        dplyr::group_by(uid) %>%
         dplyr::filter("steps" == max("steps")) %>%
         dplyr::filter("duration" == min("duration")) %>%
         dplyr::distinct() %>%
@@ -382,7 +396,7 @@ generate.physical.behaviour.summary <-
         tidyr::pivot_wider(names_from = "category", values_from = c("steps", "duration"), values_fill = list(steps = 0, duration = 0))
       peak_12_min <- walk_test_12_min_data %>%
         dplyr::mutate(category = "Walk 12 Min") %>%
-        dplyr::group_by(.data$uid) %>%
+        dplyr::group_by(uid) %>%
         dplyr::filter("steps" == max("steps")) %>%
         dplyr::filter("duration" == min("duration")) %>%
         dplyr::distinct() %>%
@@ -465,7 +479,7 @@ generate.sort.order <-
     #' @import dplyr
     if(sort_order == "UID"){
       list <- list %>% dplyr::filter(.data$category == "Stepping")
-      list <- list %>% dplyr::arrange(.data$uid)
+      list <- list %>% dplyr::arrange(uid)
       return(list)
     }
 
@@ -522,7 +536,7 @@ generate.devices.summary <-
     chart_data$category <- factor(chart_data$category, levels = c("Time in Bed","Standing","Sedentary"))
 
     chart_summary <- chart_data %>%
-      dplyr::group_by(.data$uid, .data$category, .drop = FALSE) %>%
+      dplyr::group_by(uid, .data$category, .drop = FALSE) %>%
       dplyr::summarise(duration = sum(.data$bout_duration)) %>%
       dplyr::group_by(.data$category) %>%
       dplyr::filter(.data$duration == max(.data$duration)) %>%
@@ -541,8 +555,8 @@ generate.devices.summary <-
     chart_summary[7,]$category <- "daily steps"
     chart_summary[7,]$duration <- max(daily_stepping_data$steps) - max(daily_stepping_data$steps) %% 5000 + 5000
     chart_summary[8,]$category <- "valid days"
-    chart_summary[8,]$duration <- max((valid_days %>% dplyr::group_by(.data$uid) %>% dplyr::summarise(days = n()))$days) + 7 -
-      (max((valid_days %>% dplyr::group_by(.data$uid) %>% dplyr::summarise(days = n()))$days) %% 7)
+    chart_summary[8,]$duration <- max((valid_days %>% dplyr::group_by(uid) %>% dplyr::summarise(days = n()))$days) + 7 -
+      (max((valid_days %>% dplyr::group_by(uid) %>% dplyr::summarise(days = n()))$days) %% 7)
     chart_summary[9,]$category <- "30 s stepping"
     chart_summary[9,]$duration <- max(walk_test_30_s_data$steps) - max(walk_test_30_s_data$steps) %% 20 + 20
     chart_summary[10,]$category <- "median rise time"
@@ -561,7 +575,7 @@ generate.devices.summary <-
     chart_summary[14,]$category <- "max intensity"
     mvpa_max <- mvpa_data %>%
       dplyr::mutate(val = .data$time / abs(.data$time)) %>%
-      dplyr::group_by(.data$uid, .data$val) %>%
+      dplyr::group_by(uid, .data$val) %>%
       dplyr::summarise(total_time = abs(sum(.data$time))) %>%
       dplyr::arrange(desc(.data$total_time))
     chart_summary[14,]$duration <- max(mvpa_max$total_time)
@@ -570,7 +584,7 @@ generate.devices.summary <-
     travel_summary <- travel_data %>%
       dplyr::select("uid", "bout_length", "bout_duration") %>%
       tidyr::pivot_wider(names_from = "bout_length", values_from = "bout_duration") %>%
-      dplyr::group_by(.data$uid) %>%
+      dplyr::group_by(uid) %>%
       dplyr::summarise(seated_transport = sum(.data$Seated_Transport), active_travel = sum(.data$Active_Walking + .data$Cycling))
 
     chart_summary[15,]$category <- "active travel"
@@ -579,7 +593,7 @@ generate.devices.summary <-
     chart_summary[16,]$duration <- floor(max(travel_summary$seated_transport)) + 1
 
     mvpa_summary <- mvpa_data %>%
-      dplyr::group_by(.data$uid, .data$duration) %>%
+      dplyr::group_by(uid, .data$duration) %>%
       dplyr::summarise(sum_time = sum(.data$time) / 60) %>%
       dplyr::group_by(.data$duration) %>%
       dplyr::summarise(time = max(.data$sum_time))
@@ -605,11 +619,11 @@ generate.devices.summary <-
     chart_element$bout_length <- factor(chart_element$bout_length, levels = activity_group)
 
     posture <- chart_data %>%
-      dplyr::group_by(.data$uid, category = as.character(.data$category)) %>%
+      dplyr::group_by(uid, category = as.character(.data$category)) %>%
       dplyr::summarise(duration = sum(.data$bout_duration))
     stepping <- chart_data[grep("Stepping",chart_data$bout_length),] %>%
       dplyr::mutate(category = "Stepping") %>%
-      dplyr::group_by(.data$uid, .data$category) %>%
+      dplyr::group_by(uid, .data$category) %>%
       dplyr::summarise(duration = sum(.data$bout_duration))
     sedentary_bouts <- bouts_breaks_data[,c(1,4)] %>%
       dplyr::mutate(category = "Sedentary Bouts") %>%
@@ -619,46 +633,46 @@ generate.devices.summary <-
       dplyr::select("uid", "category", duration = "breaks_per_day")
     peak_2_min <- walk_test_2_min_data %>%
       dplyr::mutate(category = "Walk 2 Min") %>%
-      dplyr::group_by(.data$uid) %>%
+      dplyr::group_by(uid) %>%
       dplyr::filter(.data$steps == max(.data$steps)) %>%
       dplyr::distinct() %>%
       dplyr::select("uid", "category", duration = "steps")
     peak_6_min <- walk_test_6_min_data %>%
       dplyr::mutate(category = "Walk 6 Min") %>%
-      dplyr::group_by(.data$uid) %>%
+      dplyr::group_by(uid) %>%
       dplyr::filter(.data$steps == max(.data$steps)) %>%
       dplyr::distinct() %>%
       dplyr::select("uid", "category", duration = "steps")
     peak_12_min <- walk_test_12_min_data %>%
       dplyr::mutate(category = "Walk 12 Min") %>%
-      dplyr::group_by(.data$uid) %>%
+      dplyr::group_by(uid) %>%
       dplyr::filter(.data$steps == max(.data$steps)) %>%
       dplyr::distinct() %>%
       dplyr::select("uid", "category", duration = "steps")
     peak_30_s <- walk_test_30_s_data %>%
       dplyr::mutate(category = "Walk 30 s") %>%
-      dplyr::group_by(.data$uid) %>%
+      dplyr::group_by(uid) %>%
       dplyr::filter(.data$steps == max(.data$steps)) %>%
       dplyr::distinct() %>%
       dplyr::select("uid", "category", duration = "steps")
     median_steps <- daily_stepping_data %>%
       dplyr::mutate(category = "Median Daily Steps") %>%
-      dplyr::group_by(.data$uid, .data$category) %>%
+      dplyr::group_by(uid, .data$category) %>%
       dplyr::summarise(duration = stats::median(.data$steps))
     below_1_minute <- chart_element %>%
       dplyr::filter(.data$bout_length == "Stepping (< 1 minute)") %>%
-      dplyr::group_by(.data$uid) %>%
+      dplyr::group_by(uid) %>%
       dplyr::summarise(short_duration = sum(.data$bout_duration))
     travel_summary <- travel_data %>%
       dplyr::select("uid", category = "bout_length", duration = "bout_duration")
     mvpa_summary <- mvpa_data %>%
-      dplyr::group_by(.data$uid, .data$category) %>%
+      dplyr::group_by(uid, .data$category) %>%
       dplyr::summarise(total_time = sum(abs(.data$time))) %>%
       dplyr::select("uid", "category", duration = "total_time")
     if(!is.null(median_rise_time_data)){
       median_rise_time <- median_rise_time_data %>%
         dplyr::mutate(category = "Median Rise Time") %>%
-        dplyr::group_by(.data$uid, .data$category) %>%
+        dplyr::group_by(uid, .data$category) %>%
         dplyr::summarise(duration = min(.data$median_rise_time))
     }else{
       median_rise_time <- NULL
@@ -666,12 +680,12 @@ generate.devices.summary <-
     median_cadence_max <- median_cadence_data %>%
       dplyr::filter(.data$group == "1 minute +") %>%
       dplyr::mutate(category = "Median Cadence Long") %>%
-      dplyr::group_by(.data$uid, .data$category) %>%
+      dplyr::group_by(uid, .data$category) %>%
       dplyr::summarise(duration = max(.data$median_cadence))
     median_cadence_min <- median_cadence_data %>%
       dplyr::filter(.data$group == "< 1 minute") %>%
       dplyr::mutate(category = "Median Cadence Short") %>%
-      dplyr::group_by(.data$uid, .data$category) %>%
+      dplyr::group_by(uid, .data$category) %>%
       dplyr::summarise(duration = min(.data$median_cadence))
     duration <- dplyr::inner_join(below_1_minute,stepping, by = "uid")
     duration$percent <- round((duration$short_duration / duration$duration * 100),0)
@@ -692,16 +706,16 @@ generate.devices.summary <-
     individual_summary <- generate.sort.order(sort_data, sort_order)
 
     walk_test_12_min_data <- walk_test_12_min_data %>%
-      dplyr::group_by(.data$uid) %>%
+      dplyr::group_by(uid) %>%
       dplyr::filter(.data$steps == max(.data$steps))
     walk_test_6_min_data <- walk_test_6_min_data %>%
-      dplyr::group_by(.data$uid) %>%
+      dplyr::group_by(uid) %>%
       dplyr::filter(.data$steps == max(.data$steps))
     walk_test_2_min_data <- walk_test_2_min_data %>%
-      dplyr::group_by(.data$uid) %>%
+      dplyr::group_by(uid) %>%
       dplyr::filter(steps == max(.data$steps))
     walk_test_30_s_data <- walk_test_30_s_data %>%
-      dplyr::group_by(.data$uid) %>%
+      dplyr::group_by(uid) %>%
       dplyr::filter(.data$steps == max(.data$steps))
 
     generate.all.outcomes.report(valid_days, chart_data, daily_stepping_data, travel_data, mvpa_data, median_rise_time_data, median_first_step_data,

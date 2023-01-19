@@ -2,7 +2,9 @@
 % Please edit documentation in R/activpal.physical.behaviour.summary.R
 \name{generate.physical.behaviour.summary}
 \alias{generate.physical.behaviour.summary}
-\title{Generates a PDF that visualises a range of summary physical behaviour outcomes for a group of individuals}
+\title{Generates a PDF that visualises a range of summary physical behaviour outcomes for a group of individuals. \cr
+Outcomes are also exported in two csv files, with outcomes aggregated by calendar day and
+EventsExended classified waking day / time in bed}
 \usage{
 generate.physical.behaviour.summary(
   input_folder,
@@ -14,6 +16,7 @@ generate.physical.behaviour.summary(
   fill_gaps = FALSE,
   minimum_wear_time = 20,
   anonymise = FALSE,
+  generate_chart = TRUE,
   standard_scales = FALSE,
   sort_order = "MEDIAN_DAILY_STEP_COUNT"
 )
@@ -62,6 +65,9 @@ This parameter will only be used if a valid period file is supplied}
 
 \item{anonymise}{logical; if true, set the file identifier as a non-identifiable string.}
 
+\item{generate_chart}{logical: if false the PDF chart is not generated and only the
+csv files with the outcomes reported per calendar day / waking day are generated}
+
 \item{standard_scales}{logical; if true, time-based axis limits are set at 24 hours.
 Using standard scales is likely to result in significant amounts of empty space.}
 
@@ -72,15 +78,26 @@ By default, files are sorted by decreasing mean daily sedentary time.}
 \description{
 activity.summary.window processes all the extended events files (format *EventsEx.csv)
     in a folder and produces a chart showing a number of summary physical behaviour outcomes for
-    the files.  The outcomes are grouped into three groups:
-    1. Mean daily time in different posture classes (time in bed, sedentary, upright and stepping)
-    2. Volume based measures of activity participation (step count, stepping duration and intensity,
+    the files. The outcomes are grouped into three groups:
+    \itemize{
+    \item Mean daily time in different posture classes (time in bed, sedentary, upright and stepping)
+    \item Volume based measures of activity participation (step count, stepping duration and intensity,
        time spent in different travel associated activities)
-    3. Measures of physical ability (time to first step, maximum step count, median cadence of
+    \item Measures of physical ability (time to first step, maximum step count, median cadence of
        stepping bouts containing short (< 1 minute) and long (> 1 minute) periods of stepping)
-
+    }
     If matching rise time files (format *RiseSitData.csv) are included in the folder an additional
-    column will be inserted to show the median rise time.
+    column will be inserted to show the median rise time. \c
+
+    If the function is unable to process one or more of the extended events files, an additional
+    file (yyMMMdd_HHMM_FileErrorList.csv) will be generated with a list of the extended events
+    files that were not processed and details of the error that prevented the file from being
+    processed. Extended events files modified in Microsoft Excel may fail to process.
+
+    The error message \strong{The Events Extended file had an unexpected format and could not be processed}
+    indicates the file may have been altered. For these files, Re-exporting the Events Extended
+    file from PAL Analysis / PAL Batch may rectify the issue preventing the file from being
+    processed.
 }
 \details{
 The following outcomes can be used to sort observations in the chart

@@ -40,6 +40,10 @@ process.events.file <-
   function(folder, file_name, validation_list, minimum_wear_time, prefix_delimiter = NULL, prefix_length = NULL, pal_batch_format = FALSE){
     # Assumes that the name of the events files contain the text Events in the file name
     events_file <- read.csv(paste(folder,file_name,sep=""), row.names = NULL, sep=";", skip = 1, stringsAsFactors = FALSE)
+    if(ncol(events_file) == 1){
+      # Imported file has been converted from a semi-colon separated file to a comma separated file
+      stop("The Events Extended file had an unexpected format and could not be processed")
+    }
     colnames(events_file) <- c(tail(colnames(events_file),-1),"")
     events_file <- events_file[,-ncol(events_file)]
     events_file$Time <- as.POSIXct(as.numeric(events_file$Time) * 86400, origin = "1899-12-30", tz = "UTC")

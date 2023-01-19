@@ -122,7 +122,8 @@ stepping.cadence.bands.folder <-
     cadence_summary <- data.frame(matrix(ncol = 3, nrow = 0))
     colnames(cadence_summary) <- c("bout_duration", "weighted_median_cadence", "file_id")
     for (i in file_list){
-        file_name <- substr(i,1,gregexpr("Event",i)[[1]][1]-1)
+      file_name <- substr(i,1,gregexpr("Event",i)[[1]][1]-1)
+      tryCatch({
         events_data <- pre.process.events.file(i,input_folder, minimum_valid_wear = minimum_valid_wear)
         if(nrow(events_data) > 0){
           stepping_summary <- stepping.cadence.bands.file(events_data,lower_bound,upper_bound)
@@ -134,6 +135,11 @@ stepping.cadence.bands.folder <-
           median_cadence_by_group$file_id <- file_name
           cadence_summary <- rbind(cadence_summary,median_cadence_by_group)
         }
+      },
+      error = function(c){
+        message(paste("An error was encountered processing ", file_name,
+                      ". Cadence data has not been generated for this file.", sep=""))
+      })
     }
     cadence_summary <- cadence_summary[,c(ncol(cadence_summary),1:(ncol(cadence_summary)-1))]
     cadence_summary$group <- factor(cadence_summary$group,
