@@ -1,5 +1,5 @@
 generate.physical.behaviour.summary <-
-  function(input_folder, period_file = NULL, chart_title = NULL, output_folder = "",
+  function(input_folder, period_file = NULL, chart_title, output_folder = "",
            prefix_delimiter = NULL, prefix_length = NULL, fill_gaps = FALSE,
            minimum_wear_time = 20, anonymise = FALSE,
            generate_chart = TRUE, standard_scales = FALSE, sort_order = "MEDIAN_DAILY_STEP_COUNT"){
@@ -18,7 +18,7 @@ generate.physical.behaviour.summary <-
     #'        stepping bouts containing short (< 1 minute) and long (> 1 minute) periods of stepping)
     #'     }
     #'     If matching rise time files (format *RiseSitData.csv) are included in the folder an additional
-    #'     column will be inserted to show the median rise time.
+    #'     column will be inserted to show the median rise time. \c
     #'
     #'     If the function is unable to process one or more of the extended events files, an additional
     #'     file (yyMMMdd_HHMM_FileErrorList.csv) will be generated with a list of the extended events
@@ -41,19 +41,13 @@ generate.physical.behaviour.summary <-
     #'
     #'     Each row defines a single observation for a single events file. The following columns
     #'     must be in the spreadsheet.
-    #'
-    #'     filename - an identifier for the events file that the period is for.  This should be
+    #'     filename = an identifier for the events file that the period is for.  This should be
     #'     the same as the identifier generated using the prefix_delimiter and prefix_length parameters
-    #'
-    #'     startime - the starting time of the period
-    #'
-    #'     endtime - the ending time of the period
-    #'
+    #'     startime = the starting time of the period
+    #'     endtime = the ending time of the period
     #'     The function will attempt to parse the supplied times in the following order
     #'     "YYYY-mm-dd HH:MM", "YYYY-mm-dd HH:MM:SS", "YYYY-dd-mm HH:MM", "YYYY-dd-mm HH:MM:SS",
     #'     "dd/mm/YYYY HH:MM", "dd/mm/YYYY HH:MM:SS", "mm/dd/YYYY HH:MM", "mm/dd/YYYY HH:MM:SS"
-    #'
-    #'     category - an idenfitier for the observation period (i.e. working day or time in bed)
     #' @param chart_title Character string; the file identifier for the generated PDF file.
     #' @param output_folder The folder where the physical behaviour summary report is to be saved.
     #'     By default the report is saved in the current working directory
@@ -107,11 +101,6 @@ generate.physical.behaviour.summary <-
                           8,7,12,
                           17,18,19,16,10,14,
                           5,5,4)
-
-    if (is.null(chart_title)){
-      chart_title <- "Physical Activity Summary"
-      warning("No chart title has been specified. A default title (Physical Activity Summary) will be used.")
-    }
 
     if (!sort_order %in% sort_order_groups & sort_order != "ALL"){
       sort_order <- "SEDENTARY_TIME"
@@ -191,7 +180,6 @@ generate.physical.behaviour.summary <-
           valid_day_list <- valid_day_list %>%
             dplyr::filter(valid == "valid") %>%
             dplyr::tally()
-
           if(valid_day_list > 0){
             valid_days[[i]] <- events_import[[2]]
 

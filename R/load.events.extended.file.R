@@ -27,22 +27,26 @@ open.events.extended.file <-
   function(file_path){
     #' @import readr
 
-    extended_events <- read.csv(paste(folder,file_name,sep=""), nrows=2, header = FALSE)
+    extended_events <- read.csv(file_path, nrows=2, header = FALSE)
     if(extended_events[2,1] == "**header**"){
-      extended_events <- read.csv(paste(folder,file_name,sep=""), header = FALSE)
+      extended_events <- read.csv(file_path, header = FALSE)
       data_start <- grep("**data**",extended_events$V1,fixed=TRUE)
       if(length(data_start) == 0){
         return(NULL)
       }
-      extended_events <- readr::read_delim(file_path, skip = data_start[1], delim = ";")
+      extended_events <- read.delim(file_path, skip = (data_start[1] + 1), row.names = NULL, sep = ";")
     }else {
-      extended_events <- readr::read_delim(file_path, skip = 1, delim = ";")
+      extended_events <- read.delim(file_path, skip = 1, row.names = NULL, sep = ";")
     }
 
-    extended_events$`Time Right Lying (s)` <- substr(extended_events$`Time Right Lying (s)`,
-                                                     1, nchar(extended_events$`Time Right Lying (s)`) - 13)
-    extended_events$`Time Right Lying (s)` <- as.numeric(extended_events$`Time Right Lying (s)`)
-    extended_events$Time <- as.POSIXct(extended_events$Time * 86400,
+    events_colnames <- colnames(extended_events)[2:ncol(extended_events)]
+    extended_events <- extended_events[,c(1:(ncol(extended_events) - 1))]
+    colnames(extended_events) <- events_colnames
+
+    extended_events$Time.Right.Lying..s. <- substr(extended_events$Time.Right.Lying..s.,
+                                                     1, nchar(extended_events$Time.Right.Lying..s.) - 13)
+    extended_events$Time.Right.Lying..s. <- as.numeric(extended_events$Time.Right.Lying..s.)
+    extended_events$Time <- as.POSIXct(as.numeric(extended_events$Time) * 86400,
                                        origin = "1899-12-30",
                                        tz = "UTC")
     return(extended_events)

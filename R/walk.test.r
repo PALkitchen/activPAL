@@ -4,7 +4,19 @@ activpal.stepping.process.file <-
     curr_uid <- file_uid
 
     # Load the file
-    events_file <- read.csv(paste(folder_location,file_name,sep=""), row.names = NULL, sep=";", skip = 1, stringsAsFactors = FALSE)
+    events_file <- read.csv(paste(folder_location,file_name,sep=""), nrows=2, header = FALSE)
+    if(events_file[2,1] == "**header**"){
+      events_file <- read.csv(paste(folder_location,file_name,sep=""), header = FALSE)
+      data_start <- grep("**data**",events_file$V1,fixed=TRUE)
+      if(length(data_start) == 0){
+        return(NULL)
+      }
+      events_file <- read.delim(paste(folder_location,file_name,sep=""),
+                                skip = (data_start[1] + 1), row.names = NULL, sep = ";")
+    }else {
+      events_file <- read.delim(paste(folder_location,file_name,sep=""),
+                                skip = 1, row.names = NULL, sep = ";")
+    }
     colnames(events_file) <- c(tail(colnames(events_file),-1),"")
     events_file <- events_file[,-ncol(events_file)]
     events_file$Time <- as.POSIXct(as.numeric(events_file$Time) * 86400, origin = "1899-12-30", tz = "UTC")
@@ -53,7 +65,19 @@ activpal.stepping.process.file.by.period <-
     # Change substr to get the prefix of the filename that matches the File code field (column 2) in the daily validation file
 
     # Load the file
-    events_file <- read.csv(paste(folder_location,file_name,sep=""), row.names = NULL, sep=";", skip = 1, stringsAsFactors = FALSE)
+    events_file <- read.csv(paste(folder_location,file_name,sep=""), nrows=2, header = FALSE)
+    if(events_file[2,1] == "**header**"){
+      events_file <- read.csv(paste(folder_location,file_name,sep=""), header = FALSE)
+      data_start <- grep("**data**",events_file$V1,fixed=TRUE)
+      if(length(data_start) == 0){
+        return(NULL)
+      }
+      events_file <- read.delim(paste(folder_location,file_name,sep=""),
+                                skip = (data_start[1] + 1), row.names = NULL, sep = ";")
+    }else {
+      events_file <- read.delim(paste(folder_location,file_name,sep=""),
+                                skip = 1, row.names = NULL, sep = ";")
+    }
     colnames(events_file) <- c(tail(colnames(events_file),-1),"")
     events_file <- events_file[,-ncol(events_file)]
     events_file$Time <- as.POSIXct(as.numeric(events_file$Time) * 86400, origin = "1899-12-30", tz = "UTC")
