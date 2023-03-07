@@ -66,8 +66,8 @@ set.custom.periods <-
           start_event <- which(compare_data$time <= lookup_data[i,]$start_date & event_end >= lookup_data[i,]$start_date)
           end_event <- which(compare_data$time <= lookup_data[i,]$end_date & event_end >= lookup_data[i,]$end_date)
 
-          events_file_data <- split.event(events_file_data, start_event, lookup_data[i,]$start_date, as.Date(lookup_data[i,]$start_date), lookup_data[i,]$category)
-          events_file_data <- split.event(events_file_data, end_event, lookup_data[i,]$end_date, as.Date(lookup_data[i,]$start_date), lookup_data[i,]$category)
+          events_file_data <- split.event(events_file_data, start_event, lookup_data[i,]$start_date, as.Date(lookup_data[i,]$start_date), lookup_data[i,]$category, "START")
+          events_file_data <- split.event(events_file_data, end_event, lookup_data[i,]$end_date, as.Date(lookup_data[i,]$start_date), lookup_data[i,]$category, "END")
         }
       }
     }
@@ -131,7 +131,7 @@ get.calendar.day.periods <-
   }
 
 split.event <-
-  function(data, pos, split_time, period_date, period_category){
+  function(data, pos, split_time, period_date, period_category, insert_position = "START"){
     if(length(pos) == 0){
       return(data)
     }
@@ -158,7 +158,13 @@ split.event <-
       data[pos,]$interval <- time_diff
 
       data$period_date <- as.Date(data$period_date, origin = "1970-01-01")
+      if(insert_position == "START"){
+        data[pos,]$period_name = NA
+      }else{
+        split_event$period_name = NA
+      }
       data <- dplyr::bind_rows(data, split_event)
+
     }
     return(data)
   }
