@@ -256,6 +256,17 @@ generate.physical.behaviour.summary <-
                       ". Outcomes have not been generated for this file.", sep=""))
       })
     }
+    if(length(valid_days) == 0){
+      if(length(skipped_files) > 0){
+        message(paste("No EventsEx files were processed!", sep=""))
+        skipped_file_list <- tidyr::separate(data.frame(skipped_files), sep = ";", col = 1, into = c("The following files were not processed","Error Trace","Error Message"))
+        error_file_name <- paste(format(Sys.time(), "%y%b%d_%H%M"),"_FileErrorList.csv",sep="")
+        write.csv(skipped_file_list,error_file_name, row.names=FALSE)
+        message(paste("Details of the files that were not processed has been saved to the file ",error_file_name,sep=""))
+      }
+      message("No outcome data will be generated.")
+      return()
+    }
     if(length(custom_period_summary) > 0){
       message("Outputting Custom Period Output")
       custom_period_summary <- dplyr::bind_rows(custom_period_summary)
