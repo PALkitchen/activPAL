@@ -160,6 +160,8 @@ generate.physical.behaviour.summary <-
         events_file_data <- events_import[[1]]
 
         if(!is.null(events_file_data)){
+          full_events_file <- load.full.events.file(input_folder, file_names[i])
+
           events_file_data_calendar <- set.calendar.day.periods(events_file_data)
           events_file_data_waking_day <- set.waking.day.periods(events_file_data)
           calendar_day_periods <- get.calendar.day.periods(events_file_data_calendar, file_uid)
@@ -170,11 +172,11 @@ generate.physical.behaviour.summary <-
             custom_periods <- lookup_data %>% dplyr::filter(id == file_uid)
             if(nrow(custom_periods) > 0){
               events_file_data_custom <- set.custom.periods(events_file_data,custom_periods)
-              custom_period_summary[[i]] <- custom.period.summary(input_folder,file_names[i],file_uid,events_file_data_custom, custom_periods)
+              custom_period_summary[[i]] <- custom.period.summary(input_folder,file_names[i],file_uid,events_file_data_custom,full_events_file,custom_periods)
             }
           }
-          waking_day_summary[[i]] <- custom.period.summary(input_folder,file_names[i],file_uid,events_file_data_waking_day, waking_day_periods)
-          calendar_day_summary[[i]] <- custom.period.summary(input_folder,file_names[i],file_uid,events_file_data_calendar, calendar_day_periods)
+          waking_day_summary[[i]] <- custom.period.summary(input_folder,file_names[i],file_uid,events_file_data_waking_day,full_events_file,waking_day_periods)
+          calendar_day_summary[[i]] <- custom.period.summary(input_folder,file_names[i],file_uid,events_file_data_calendar,full_events_file,calendar_day_periods)
 
           valid_day_list <- events_import[[2]]
           valid_day_list <- valid_day_list %>%
@@ -609,16 +611,16 @@ generate.devices.summary <-
       dplyr::summarise(time = max(.data$sum_time))
 
     chart_summary[17,]$category <- "short"
-    if(length(round(mvpa_summary[which(mvpa_summary$duration == "short"),]$time, 2)) == 0){
-      chart_summary[17,]$duration <- round(mvpa_summary[which(mvpa_summary$duration == "short"),]$time, 2)
+    if(length(round(mvpa_summary[which(mvpa_summary$duration == "short (< 60s)"),]$time, 2)) == 0){
+      chart_summary[17,]$duration <- round(mvpa_summary[which(mvpa_summary$duration == "short (< 60s)"),]$time, 2)
     }else{
       chart_summary[17,]$duration <- 0
     }
-    chart_summary[18,]$category <- "long"
-    if(length(round(mvpa_summary[which(mvpa_summary$duration == "long"),]$time, 2)) == 0){
+    chart_summary[18,]$category <- "long (>= 60s)"
+    if(length(round(mvpa_summary[which(mvpa_summary$duration == "long (>= 60s)"),]$time, 2)) == 0){
       chart_summary[18,]$duration <- 0
     }else{
-      chart_summary[18,]$duration <- round(mvpa_summary[which(mvpa_summary$duration == "long"),]$time, 2)
+      chart_summary[18,]$duration <- round(mvpa_summary[which(mvpa_summary$duration == "long (>= 60s)"),]$time, 2)
     }
     chart_summary[19,]$category <- "min cadence"
     chart_summary[19,]$duration <- min(walk_test_12_min_data$cadence)

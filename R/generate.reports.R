@@ -42,11 +42,11 @@ generate.all.outcomes.report <-
       plot_data_travel <- generate.travel.chart(travel_data[which(travel_data$uid %in% page_uid),],
                                                 chart_summary, page_individual_summary,standard_scales,FALSE)
 
-      plot_indoor_walking <- generate.indoor.walking.chart(mvpa_data[which(mvpa_data$uid %in% page_uid & mvpa_data$duration == "short"),],
+      plot_indoor_walking <- generate.indoor.walking.chart(mvpa_data[which(mvpa_data$uid %in% page_uid & mvpa_data$duration == "short (< 60s)"),],
                                                            chart_summary, page_individual_summary)
-      plot_data_short_mvpa_stepping <- generate.stepping.intensity.chart(mvpa_data[which(mvpa_data$uid %in% page_uid & mvpa_data$duration == "short"),],
+      plot_data_short_mvpa_stepping <- generate.stepping.intensity.chart(mvpa_data[which(mvpa_data$uid %in% page_uid & mvpa_data$duration == "short (< 60s)"),],
                                                                          chart_summary, page_individual_summary, standard_scales, FALSE)
-      plot_data_long_mvpa_stepping <- generate.stepping.intensity.chart(mvpa_data[which(mvpa_data$uid %in% page_uid & mvpa_data$duration == "long"),],
+      plot_data_long_mvpa_stepping <- generate.stepping.intensity.chart(mvpa_data[which(mvpa_data$uid %in% page_uid & mvpa_data$duration == "long (>= 60s)"),],
                                                                         chart_summary, page_individual_summary, standard_scales, FALSE)
 
       plot_time_to_first_step <- generate.time.to.first.step.chart(median_first_step_data[which(median_first_step_data$uid %in% page_uid),],

@@ -385,7 +385,8 @@ generate.stepping.intensity.chart <-
   function(mvpa_data, chart_summary, individual_summary, standard_scale = FALSE, include_labels = TRUE){
     #' @import ggplot2
     mvpa_data$uid <- factor(mvpa_data$uid, levels = individual_summary$uid)
-    mvpa_data$category <- factor(mvpa_data$category, levels = c("VPA","MVPA","MPA","LPA"))
+    mvpa_data$category <- factor(mvpa_data$category, levels = c("VPA (> 125 spm)","MVPA (100 - 125 spm)",
+                                                                "MPA (75 - 100 spm)","LPA (< 75 spm)"))
 
     mvpa_data$time <- abs(mvpa_data$time)
 

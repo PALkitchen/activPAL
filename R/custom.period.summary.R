@@ -1,17 +1,21 @@
 custom.period.summary <-
-  function(input_folder,file_name,id,events_file_data, custom_periods){
-    walk_test_30_s <- activpal.stepping.process.file.by.period(input_folder,file_name,30,86400,custom_periods)
-    walk_test_2_min <- activpal.stepping.process.file.by.period(input_folder,file_name,120,86400,custom_periods)
-    walk_test_6_min <- activpal.stepping.process.file.by.period(input_folder,file_name,360,86400,custom_periods)
-    walk_test_12_min <- activpal.stepping.process.file.by.period(input_folder,file_name,720,86400,custom_periods)
+  function(input_folder,file_name,id,events_file_data,full_events_file,custom_periods){
+
+    walk_test_30_s <- activpal.stepping.process.file.by.period(full_events_file,30,86400,custom_periods)
+    walk_test_2_min <- activpal.stepping.process.file.by.period(full_events_file,120,86400,custom_periods)
+    walk_test_6_min <- activpal.stepping.process.file.by.period(full_events_file,360,86400,custom_periods)
+    walk_test_12_min <- activpal.stepping.process.file.by.period(full_events_file,720,86400,custom_periods)
 
     walk_test_30_s <- format.walk.test.by.period(walk_test_30_s, "30_seconds")
     walk_test_2_min <- format.walk.test.by.period(walk_test_2_min, "2_minute")
     walk_test_6_min <- format.walk.test.by.period(walk_test_6_min, "6_minute")
     walk_test_12_min <- format.walk.test.by.period(walk_test_12_min, "12_minute")
 
-    observation_summary <- custom_periods[,c(5,1,2)]
-    colnames(observation_summary)[c(1,3)] <- c("uid","period_name")
+    observation_summary <- custom_periods[,c(5,1,2,3,4)]
+    colnames(observation_summary)[c(1,3:5)] <- c("uid","period_name","period_start","period_end")
+    observation_summary$period_duration <- round(as.numeric(difftime(observation_summary$period_end,
+                                                                    observation_summary$period_start,
+                                                                    units = "hours")),3)
 
     walk_test_summary <- dplyr::inner_join(observation_summary,
                                            dplyr::inner_join(dplyr::inner_join(dplyr::inner_join(
@@ -26,7 +30,7 @@ custom.period.summary <-
 
     non_wear_data <- build.non.wear.summary.by.period(events_file_data)
     non_wear_data <- non_wear_data %>% dplyr::select(uid, period_name, period_date, bout_duration)
-    non_wear_data$bout_duration <- round(non_wear_data$bout_duration,1)
+    non_wear_data$bout_duration <- round(non_wear_data$bout_duration,2)
     colnames(non_wear_data)[4] <- "Non Wear"
 
     sedentary_data <- build.sedentary.summary.by.period(events_file_data)
@@ -34,18 +38,18 @@ custom.period.summary <-
       dplyr::filter(!is.na(period_name)) %>%
       tidyr::pivot_wider(names_from = "bout_length", names_expand = TRUE, values_from = "bout_duration")
     sedentary_data[is.na(sedentary_data)] <- 0
-    sedentary_data[,c(4:ncol(sedentary_data)),] <- round(sedentary_data[,c(4:ncol(sedentary_data)),],1)
+    sedentary_data[,c(4:ncol(sedentary_data)),] <- round(sedentary_data[,c(4:ncol(sedentary_data)),],3)
 
     upright_data <- build.upright.summary.by.period(events_file_data)
     upright_data <- format.upright.data.by.period(upright_data)
-    upright_data[,c(4:ncol(upright_data)),] <- round(upright_data[,c(4:ncol(upright_data)),],1)
+    upright_data[,c(4:ncol(upright_data)),] <- round(upright_data[,c(4:ncol(upright_data)),],3)
 
     stepping_data <- build.stepping.summary.by.period(events_file_data)
     stepping_data <- stepping_data %>% dplyr::filter(!is.na(period_name))
 
     travel_data <- build.travel.summary.by.period(events_file_data)
     travel_data <- format.travel.data.by.period(travel_data)
-    travel_data[,c(4:ncol(travel_data)),] <- round(travel_data[,c(4:ncol(travel_data)),],1)
+    travel_data[,c(4:ncol(travel_data)),] <- round(travel_data[,c(4:ncol(travel_data)),],3)
 
     median_cadence_data <- median.cadence.bands.by.period(events_file_data)
     median_cadence_data <- format.median.cadence.by.period(median_cadence_data)
@@ -71,7 +75,7 @@ custom.period.summary <-
     observation_summary <- dplyr::left_join(observation_summary, mvpa_data, by = c("uid","period_name","period_date"))
     observation_summary <- dplyr::left_join(observation_summary, median_cadence_data, by = c("uid","period_name","period_date"))
     observation_summary <- dplyr::left_join(observation_summary, travel_data, by = c("uid","period_name","period_date"))
-    observation_summary <- dplyr::left_join(observation_summary, walk_test_summary, by = c("uid","period_name","period_date"))
+    observation_summary <- dplyr::left_join(observation_summary, walk_test_summary, by = c("uid","period_name","period_date","period_start","period_end"))
 
     observation_summary[is.na(observation_summary)] <- 0
 
@@ -111,8 +115,9 @@ format.travel.data.by.period <-
 format.mvpa.data.by.period <-
   function(mvpa_data){
     mvpa_data$category <- factor(mvpa_data$category,
-                                 levels = c("LPA", "MPA", "MVPA", "VPA"))
-    mvpa_data$duration <- factor(mvpa_data$duration, levels = c("short","long"))
+                                 levels = c("LPA (< 75 spm)", "MPA (75 - 100 spm)",
+                                            "MVPA (100 - 125 spm)", "VPA (> 125 spm)"))
+    mvpa_data$duration <- factor(mvpa_data$duration, levels = c("short (< 60s)","long (>= 60s)"))
 
     mvpa_summary <- mvpa_data %>%
       dplyr::filter(!is.na(period_name)) %>%

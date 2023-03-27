@@ -235,13 +235,13 @@ build.stepping.intensity.summary <-
       dplyr::mutate(cadence = .data$steps / (.data$interval / 60)) %>%
       dplyr::group_by(.data$upright_bout) %>%
       dplyr::mutate(longest_bout = max(.data$interval))
-    events_file_data$category <- "VPA"
-    events_file_data[which(events_file_data$cadence < 125),]$category <- "MVPA"
-    events_file_data[which(events_file_data$cadence < 100),]$category <- "MPA"
-    events_file_data[which(events_file_data$cadence < 75),]$category <- "LPA"
+    events_file_data$category <- "VPA (> 125 spm)"
+    events_file_data[which(events_file_data$cadence < 125),]$category <- "MVPA (100 - 125 spm)"
+    events_file_data[which(events_file_data$cadence < 100),]$category <- "MPA (75 - 100 spm)"
+    events_file_data[which(events_file_data$cadence < 75),]$category <- "LPA (< 75 spm)"
 
-    events_file_data$duration <- "long"
-    events_file_data[which(events_file_data$longest_bout < 60),]$duration <- "short"
+    events_file_data$duration <- "long (>= 60s)"
+    events_file_data[which(events_file_data$longest_bout < 60),]$duration <- "short (< 60s)"
 
     stepping_summary <- events_file_data %>%
       dplyr::group_by(.data$uid, .data$Date, .data$category, .data$duration) %>%
@@ -252,7 +252,7 @@ build.stepping.intensity.summary <-
     stepping_summary <- stepping_summary %>%
       dplyr::select(.data$uid, .data$category, .data$duration, .data$time)
 
-    stepping_summary$short_percent <- round((sum(stepping_summary[which(stepping_summary$duration == "short"),]$time) / sum(stepping_summary$time) * 100),1)
+    stepping_summary$short_percent <- round((sum(stepping_summary[which(stepping_summary$duration == "short (< 60s)"),]$time) / sum(stepping_summary$time) * 100),1)
     return(stepping_summary)
   }
 

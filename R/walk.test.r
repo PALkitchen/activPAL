@@ -60,10 +60,8 @@ activpal.stepping.process.file <-
     return(file_stepping_summary)
   }
 
-activpal.stepping.process.file.by.period <-
-  function(folder_location, file_name, window_size = 360, max_bout_size = 86400, period_data){
-    # Change substr to get the prefix of the filename that matches the File code field (column 2) in the daily validation file
-
+load.full.events.file <-
+  function(folder_location, file_name){
     # Load the file
     events_file <- read.csv(paste(folder_location,file_name,sep=""), nrows=2, header = FALSE)
     if(events_file[2,1] == "**header**"){
@@ -81,6 +79,13 @@ activpal.stepping.process.file.by.period <-
     colnames(events_file) <- c(tail(colnames(events_file),-1),"")
     events_file <- events_file[,-ncol(events_file)]
     events_file$Time <- as.POSIXct(as.numeric(events_file$Time) * 86400, origin = "1899-12-30", tz = "UTC")
+
+    return(events_file)
+  }
+
+activpal.stepping.process.file.by.period <-
+  function(events_file, window_size = 360, max_bout_size = 86400, period_data){
+    # Change substr to get the prefix of the filename that matches the File code field (column 2) in the daily validation file
 
     if(nrow(events_file) > 0){
       events_file <- activpal.remove.longer.bouts(events_file,max_bout_size)
