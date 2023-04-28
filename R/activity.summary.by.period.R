@@ -1,3 +1,148 @@
+activity.summary.by.custom.period.revised <-
+  function(input_folder, period_file = NULL, output_folder,
+           prefix_delimiter = NULL, prefix_length = NULL, fill_gaps = FALSE,
+           minimum_valid_wear = 20){
+    #' Summarise activity data from a folder of activPAL events files
+    #' in user defined periods.  This is an updated version of
+    #' activity.summary.by.custom.period to support the specification of
+    #' custom reporting periods used in generate.physical.behaviour.summary()
+    #' and the include details on the number of events occurring within
+    #' each epoch.
+    #' @description activity.summary.custom.period.revised reads in a csv file containing a list
+    #'     of events files and csv files with time periods of interest (the first two
+    #'     columns should have the start date and end date in the format dd-mm-yy HH:MM).
+    #'     A summary table is saved to a csv file for each events file.  A further csv
+    #'     file giving a summary for all the events file is also generated.  The generated
+    #'     summary activity table for each events file is saved to a csv file, while an
+    #'     additional csv file containing the summaries across all the processed events
+    #'     files is also saved.
+    #' @param input_folder The folder where the events files (format *EventsEx.csv)
+    #'     and optional rise time files (format *RiseSitData.csv) to be processed are saved.
+    #' @param period_file The location of a csv files containing the details of custom periods to
+    #'     to be used when analysing the supplied events files.
+    #'
+    #'     If the location of a valid file is supplied the csv file with the suffix "_Custom_Summary"
+    #'     will be generated containing the outcomes using the supplied periods.
+    #'
+    #'     Each row defines a single observation for a single events file. The following columns
+    #'     must be in the spreadsheet.
+    #'     filename = an identifier for the events file that the period is for.  This should be
+    #'     the same as the identifier generated using the prefix_delimiter and prefix_length parameters
+    #'     startime = the starting time of the period
+    #'     endtime = the ending time of the period
+    #'     The function will attempt to parse the supplied times in the following order
+    #'     "YYYY-mm-dd HH:MM", "YYYY-mm-dd HH:MM:SS", "YYYY-dd-mm HH:MM", "YYYY-dd-mm HH:MM:SS",
+    #'     "dd/mm/YYYY HH:MM", "dd/mm/YYYY HH:MM:SS", "mm/dd/YYYY HH:MM", "mm/dd/YYYY HH:MM:SS"
+    #' @param output_folder The folder where the physical behaviour summary report is to be saved.
+    #'     By default the report is saved in the current working directory
+    #' @param prefix_delimiter Character string to be matched against the events file name when
+    #'     generating the file identifier.  The generated identifier is the portion of the file name
+    #'     preceding the supplied string.
+    #' @param prefix_length An integer that specifies the number of characters to take from the
+    #'     start of the events file name to generate the file identifier.
+    #'     If prefix_delimiter and prefix_length are both provided, the shortest file identifier
+    #'     that can be generated using the parameters is used.
+    #'     If neither prefix_delimiter or prefix_length are provided, the first six characters
+    #'     of the file name is used as the file identifier.
+    #' @param fill_gaps Specifies if outcomes should be calculated for any time periods not
+    #'     explicitly specified by a period file.
+    #'     This parameter will only be used if a valid period file is supplied
+    #' @param minimum_wear_time the minimum number of hours of valid wear
+
+    #' @importFrom devtools load_all
+    #' @import utils
+    #' @export
+
+    .Deprecated("generate.physical.behaviour.summary")
+    if(!valid.file.path(input_folder) & input_folder != ""){
+      stop("A valid folder location to read events files from has not been provided.")
+    }
+    if(!valid.folder.path(output_folder) & output_folder != ""){
+      stop("A valid folder to save the generated output has not been provided.")
+    }
+
+    file_names <- list.files(input_folder, pattern="*.csv",recursive = FALSE)
+    file_names <- file_names[grep("EventsEx",file_names)]
+
+    if(length(file_names) == 0){
+      stop(paste("The summary outcome report was not generated as the selected folder contains no events extended files.",
+                 "If there are events extended files in sub-folders you should move these files into the parent folder.", sep = " "))
+    }
+
+    lookup_data <- load.lookup.period.file(period_file, FALSE)
+
+    all_summary <- list()
+    for(i in (1:length(file_names))){
+      tryCatch({
+        events_import <- process.events.file(input_folder, file_names[i], NULL, minimum_valid_wear, prefix_delimiter, prefix_length)
+        file_uid <- parse.file.name(file_names[i], prefix_delimiter, prefix_length)
+
+        events_file_data <- events_import[[1]]
+
+        if(!is.null(events_file_data)){
+          full_events_file <- load.full.events.file(input_folder, file_names[i])
+
+          if(!is.null(lookup_data)){
+            custom_periods <- lookup_data %>% dplyr::filter(id == file_uid)
+            if(nrow(custom_periods) > 0){
+              events_file_data_custom <- set.custom.periods(events_file_data,custom_periods)
+
+              file_summary <- events_file_data_custom %>%
+                dplyr::group_by(period_date, period_name) %>%
+                dplyr::summarise(period_duration = sum(interval), steps = sum(steps))
+              epoch_summary <- events_file_data_custom %>%
+                dplyr::group_by(period_date, period_name, activity) %>%
+                dplyr::summarise(events = n())
+              duration_summary <- events_file_data_custom %>%
+                dplyr::group_by(period_date, period_name, activity) %>%
+                dplyr::summarise(duration_minutes = round(sum(interval)/60,2))
+
+              activity_summary <- dplyr::inner_join(file_summary, epoch_summary,
+                                             by = c("period_date", "period_name"))
+              activity_summary <- dplyr::inner_join(activity_summary, duration_summary,
+                                             by = c("period_date", "period_name", "activity"))
+              activity_summary$uid <- file_uid
+              all_summary[[i]] <- activity_summary
+            }
+          }
+        }
+        message(paste("Processed File ",i," of ",length(file_names),sep=""))
+      },
+      error = function(c){
+        message(paste("File ",file_names[i]," encoutered an error and was not processed.",sep=""))
+      })
+    }
+    all_summary <- bind_rows(all_summary)
+
+    if(nrow(all_summary) == 0){
+      message("No summary data was generated as there were no valid files to process.")
+      return(NULL)
+    }
+
+    all_summary$activity <- as.character(all_summary$activity)
+    all_summary[which(all_summary$activity == "0"),]$activity <- rep("Sedentary",length(which(all_summary$activity == "0")))
+    all_summary[which(all_summary$activity == "1"),]$activity <- rep("Upright",length(which(all_summary$activity == "1")))
+    all_summary[which(all_summary$activity == "2"),]$activity <- rep("Stepping",length(which(all_summary$activity == "2")))
+    all_summary[which(all_summary$activity == "2.1"),]$activity <- rep("Cycling",length(which(all_summary$activity == "2.1")))
+    all_summary[which(all_summary$activity == "3"),]$activity <- rep("Lying",length(which(all_summary$activity == "3")))
+    all_summary[which(all_summary$activity == "3.1"),]$activity <- rep("Primary Lying",length(which(all_summary$activity == "3.1")))
+    all_summary[which(all_summary$activity == "3.2"),]$activity <- rep("Secondary Lying",length(which(all_summary$activity == "3.2")))
+    all_summary[which(all_summary$activity == "4"),]$activity <- rep("Non-Wear",length(which(all_summary$activity == "4")))
+    all_summary[which(all_summary$activity == "5"),]$activity <- rep("Travelling",length(which(all_summary$activity == "5")))
+
+    all_summary$activity <- factor(all_summary$activity,
+                                   levels =c("Sedentary","Upright","Stepping","Cycling","Lying",
+                                             "Primary Lying","Secondary Lying","Non-Wear","Travelling"))
+    all_summary <- all_summary %>%
+      tidyr::pivot_wider(names_from = "activity", names_sort = TRUE,
+                         values_from = c("events","duration_minutes"))
+    col_refs <- c(rbind(6:(((ncol(all_summary) + 7) / 2)-1),((ncol(all_summary) + 7) / 2):ncol(all_summary)))
+    all_summary <- all_summary[,c(5,1,2,3,4,col_refs)]
+    all_summary[is.na(all_summary)] <- 0
+    write.csv(all_summary,paste(output_folder,"custom_activity_summary_all_files.csv",sep=""),row.names = FALSE)
+    return(all_summary)
+  }
+
 activity.summary.by.custom.period <-
   function(location_file,output_folder,minimum_valid_wear = 20){
     #' Summarise activity data from a folder of activPAL events files
@@ -22,6 +167,8 @@ activity.summary.by.custom.period <-
     #' @importFrom devtools load_all
     #' @import utils
     #' @export
+
+    .Deprecated("generate.physical.behaviour.summary")
 
     if(!valid.file.path(location_file)){
       stop("The location of the required input file has not been provided / does not exist.")
