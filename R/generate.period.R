@@ -127,40 +127,14 @@ set.custom.periods <-
         if(length(periods) > 0){
           events_file_data[periods,]$period_date <- as.Date(lookup_data[i,]$start_date, origin = "1970-01-01")
           events_file_data[periods,]$period_name <- lookup_data[i,]$category
-          periods <- which(compare_data$time >= lookup_data[i,]$start_date & compare_data$time <= lookup_data[i,]$end_date)
-          if(length(periods) > 0){
-            events_file_data[periods,]$period_date <- as.Date(lookup_data[i,]$start_date, origin = "1970-01-01")
-            events_file_data[periods,]$period_name <- lookup_data[i,]$category
-
-            start_event <- which(compare_data$time <= lookup_data[i,]$start_date & event_end >= lookup_data[i,]$start_date)
-            end_event <- which(compare_data$time <= lookup_data[i,]$end_date & event_end >= lookup_data[i,]$end_date)
-
-            if(length(start_event) > 1){
-              start_event <- start_event[length(start_event)]
-            }
-            if(length(end_event) > 1){
-              end_event <- end_event[length(end_event)]
-            }
-
-            events_file_data <- split.event(events_file_data, start_event, lookup_data[i,]$start_date, as.Date(lookup_data[i,]$start_date), lookup_data[i,]$category, "START")
-            if(i > 1){
-              events_file_data[start_event,]$period_date <- lookup_data[i-1,]$period_date
-              events_file_data[start_event,]$period_name <- lookup_data[i-1,]$category
-            }
-            events_file_data <- split.event(events_file_data, end_event, lookup_data[i,]$end_date, as.Date(lookup_data[i,]$start_date), lookup_data[i,]$category, "END")
-            if(i < nrow(lookup_data)){
-              events_file_data[nrow(events_file_data),]$period_date <- lookup_data[i+1,]$period_date
-              events_file_data[nrow(events_file_data),]$period_name <- lookup_data[i+1,]$category
-            }
-          }
         }
       }
-      events_file_data <- events_file_data %>%
-        dplyr::arrange(time)
-      events_file_data <- events_file_data %>%
-        dplyr::filter(!is.na(period_name))
-      return(events_file_data)
     }
+    events_file_data <- events_file_data %>%
+      dplyr::arrange(time)
+    events_file_data <- events_file_data %>%
+      dplyr::filter(!is.na(period_name))
+    return(events_file_data)
   }
 
 set.waking.day.periods <-
