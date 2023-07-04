@@ -174,10 +174,10 @@ generate.sedentary.standing.chart <-
     #' @import dplyr
     #' @import ggplot2
     activity_group <- c("Sedentary (4 hours +)", "Sedentary (2 - 4 hours)", "Sedentary (1 - 2 hours)", "Sedentary (30 min - 1 hour)", "Sedentary (< 30 min)",
-                        "Stepping (1 minute +)","Stepping (< 1 minute)","Quiet Standing")
+                        "Stepping (10 minutes +)","Stepping (1 - 10 minutes)","Stepping (< 1 minute)","Quiet Standing")
 
     activity_colour <- c("#c17100","#f18c00","#ffa700","#ffc451","#f2f200",
-                         "#CB181D","#FEE5D9","#38D305")
+                         "#99080e","#c40012","#c1908b","#38D305")
     chart_data$sub_category <- as.character(chart_data$bout_length)
     chart_data$sub_category <- factor(chart_data$sub_category, levels = activity_group)
 
@@ -312,6 +312,12 @@ generate.daily.stepping.summary.chart <-
     stepping_max <- chart_summary[grep("daily steps",chart_summary$category),]$duration
     stepping_max <- max(stepping_max,10000)
 
+    daily_stepping_data$dow <- "Weekday"
+    daily_stepping_data[which(weekdays(daily_stepping_data$date) == "Saturday"),]$dow <- "Saturday"
+    daily_stepping_data[which(weekdays(daily_stepping_data$date) == "Sunday"),]$dow <- "Sunday"
+    daily_stepping_data$dow <- factor(daily_stepping_data$dow,
+                                      levels = c("Weekday","Saturday","Sunday"))
+
     mean_valid_days <- daily_stepping_data %>%
       dplyr::group_by(.data$uid) %>%
       dplyr::tally() %>%
@@ -320,7 +326,8 @@ generate.daily.stepping.summary.chart <-
     plot_data <- ggplot2::ggplot(data = daily_stepping_data, aes(x = .data$uid, y = .data$steps)) +
       ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=0, ymax=stepping_max, alpha=0.2, fill="grey85") +
       ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=0, ymax=10000, alpha=0.2, fill="grey60") +
-      ggplot2::geom_point(color = "black", fill = grDevices::rgb(0.25,0.25,0.25,0.25), shape = 21, size = 2, stroke = 0.5) +
+      ggplot2::geom_point(aes(fill = .data$dow), color = "black", shape = 21, size = 2, stroke = 0.5) +
+      ggplot2::scale_fill_manual(values = c("#40404040","#ffeb3b","#ff9800"), drop = FALSE) +
       ggplot2::xlab("") +
       ggplot2::ylab("steps") +
       ggplot2::scale_x_discrete(drop = FALSE) +
@@ -390,7 +397,7 @@ generate.stepping.intensity.chart <-
 
     mvpa_data$time <- abs(mvpa_data$time)
 
-    stepping_max <- max(1,chart_summary[which(chart_summary$category %in% c("long","short")),]$duration) * 60
+    stepping_max <- max(1,chart_summary[which(chart_summary$category %in% c("long (>= 60s)","short")),]$duration) * 60
     stepping_max <- stepping_max - (stepping_max %% 20) + 20
 
     plot_data <- ggplot2::ggplot(data = mvpa_data, ggplot2::aes(x = .data$uid, y = .data$time)) +
@@ -425,6 +432,51 @@ generate.stepping.intensity.chart <-
       plot_data <- plot_data + ggplot2::theme(axis.title.y = element_blank(),
                                      axis.text.y = element_blank(),
                                      axis.ticks.y = element_blank())
+    }
+    return(plot_data)
+  }
+
+generate.bouted.stepping.chart <-
+  function(bouted_stepping_data, chart_summary, individual_summary, standard_scale = FALSE, include_labels = TRUE){
+    #' @import ggplot2
+    bouted_stepping_data$uid <- factor(bouted_stepping_data$uid, levels = individual_summary$uid)
+    bouted_stepping_data$duration <- factor(bouted_stepping_data$duration, levels = c("long","intermediate","short"))
+
+    stepping_max <- max(5000,chart_summary[which(chart_summary$category == "mean steps"),]$duration)
+
+    plot_data <- ggplot2::ggplot(data = bouted_stepping_data, ggplot2::aes(x = .data$uid, y = .data$steps)) +
+      ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=0, ymax=0, alpha=0.2, fill="grey85") +
+      ggplot2::geom_col(ggplot2::aes(fill = .data$duration), position = "stack")
+    plot_data <- plot_data +
+      ggplot2::scale_fill_manual(values = c("#99080e","#c40012","#c1908b"), drop = FALSE) + # colorbrewer 7 class oranges (5,3,1)
+      ggplot2::ylab("steps") +
+      ggplot2::scale_x_discrete(drop = FALSE) +
+      ggplot2::coord_flip() +
+      ggplot2::theme(strip.background = element_blank(),
+                     strip.text.x = element_blank(),
+                     axis.text.x = element_text(size = 8),
+                     axis.ticks.y = element_blank(),
+                     panel.background = element_rect(fill = NA),
+                     panel.grid.major.x = element_line(colour = "grey75", linetype = 2),
+                     panel.grid.minor.x = element_line(colour = "grey85", linetype = 2),
+                     panel.spacing = unit(1, "lines"),
+                     legend.position = "none")
+
+    if(standard_scale){
+      plot_data <- plot_data + ggplot2::scale_y_continuous(limit = c(0,15000),
+                                                           breaks = seq(0,15000,5000), labels =  c("0","5k","10k","15k"),
+                                                           minor_breaks = seq(0,15000,1000))
+    } else{
+      plot_data <- plot_data + ggplot2::scale_y_continuous(limit = c(0,stepping_max),
+                                                           breaks = seq(0,stepping_max,5000),
+                                                           labels = paste(seq(0,stepping_max,5000)/1000,"k",sep = ""),
+                                                           minor_breaks = seq(0,stepping_max,1000))
+    }
+
+    if(!include_labels){
+      plot_data <- plot_data + ggplot2::theme(axis.title.y = element_blank(),
+                                              axis.text.y = element_blank(),
+                                              axis.ticks.y = element_blank())
     }
     return(plot_data)
   }
@@ -502,16 +554,19 @@ generate.time.to.first.step.chart <-
       first_step_data[which(first_step_data$time_first_step > 5),]$group <- "short"
       first_step_data[which(first_step_data$time_first_step > 5),]$time_first_step <- 5
     }
+    first_step_data$group <- factor(first_step_data$group,
+                                    levels = c("full","short"))
 
     plot_data <- ggplot2::ggplot(data = first_step_data, ggplot2::aes(x = .data$uid, y = .data$time_first_step)) +
       ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=0, ymax=5, alpha=0.2, fill="grey85") +
       ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=1, ymax=1, alpha=0.2, fill="grey60") +
-      ggplot2::geom_point(ggplot2::aes(fill = .data$group), color = "black", shape = 21, size = 3) +
+      ggplot2::geom_point(ggplot2::aes(fill = .data$group), color = "black",
+                          shape = 21, size = 2, stroke = 1.5) +
       ggplot2::xlab("") +
       ggplot2::ylab("time (s)") +
-      ggplot2::scale_fill_manual(values = c("black","red")) +
+      ggplot2::scale_fill_manual(values = c("black","white"), drop = FALSE) +
       ggplot2::scale_x_discrete(drop = FALSE) +
-      ggplot2::scale_y_continuous(limit = c(0,5), breaks = seq(0,5,1), minor_breaks = seq(0,5,0.5)) +
+      ggplot2::scale_y_continuous(limit = c(0,5.2), breaks = seq(0,5,1), minor_breaks = seq(0,5,0.5)) +
       ggplot2::coord_flip() +
       ggplot2::theme(strip.background = element_blank(),
             strip.text.x = element_blank(),
@@ -540,7 +595,7 @@ generate.rise.time.chart <-
     plot_data <- ggplot2::ggplot(data = rise_time_data, ggplot2::aes(x = .data$uid, y = .data$median_rise_time)) +
       ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=0, ymax=rise_time_max, alpha=0.2, fill="grey85") +
       ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=1, ymax=1, alpha=0.2, fill="grey60") +
-      ggplot2::geom_point(size = 3) +
+      ggplot2::geom_point(size = 2, stroke = 1.5) +
       ggplot2::xlab("") +
       ggplot2::ylab("time (s)") +
       ggplot2::scale_x_discrete(drop = FALSE) +
@@ -577,14 +632,14 @@ generate.median.rise.time.chart <-
 
     median_rise_time_data$proportion <- "All"
     if(length(which(median_rise_time_data$duration < 25)) > 0){
-      median_rise_time_data[median_rise_time_data$duration < 25,]$proportion <- "Partial"
+      median_rise_time_data[which(median_rise_time_data$duration < 25),]$proportion <- "Partial"
     }
     median_rise_time_data$proportion <- factor(median_rise_time_data$proportion, levels = c("All","Partial"))
     median_rise_time_data$uid <- factor(median_rise_time_data$uid, levels = individual_summary$uid)
 
     plot_data <- ggplot2::ggplot(data = median_rise_time_data, ggplot2::aes(x = .data$uid, y = .data$median_rise_time)) +
       ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=0, ymax=median_rise_time_max, alpha=0.2, fill="grey85") +
-      ggplot2::geom_point(fill = "black", size = 4, shape = 20) +
+      ggplot2::geom_point(color = "black", fill = "black", size = 2, stroke = 1.5, shape = 21) +
       ggplot2::xlab("") +
       ggplot2::ylab("time (s)") +
       ggplot2::scale_x_discrete(drop = FALSE) +
@@ -630,42 +685,53 @@ generate.peak.stepping.chart <-
     if(length(which(walk_test_30s_data$duration < 25)) > 0){
       walk_test_30s_data[which(walk_test_30s_data$duration < 25),]$proportion <- "Partial"
     }
+    walk_test_30s_data$normalised_stepping <- walk_test_30s_data$steps * 2
+
     walk_test_2min_data$period <- "2min"
     walk_test_2min_data$proportion <- "2min"
     if(length(which(walk_test_2min_data$duration < 115)) > 0){
       walk_test_2min_data[which(walk_test_2min_data$duration < 115),]$proportion <- "Partial"
     }
+    walk_test_2min_data$normalised_stepping <- walk_test_2min_data$steps / 2
+
     walk_test_6min_data$period <- "6min"
     walk_test_6min_data$proportion <- "6min"
     if(length(which(walk_test_6min_data$duration < 345)) > 0){
       walk_test_6min_data[which(walk_test_6min_data$duration < 345),]$proportion <- "Partial"
     }
+    walk_test_6min_data$normalised_stepping <- walk_test_6min_data$steps / 6
+
     walk_test_12min_data$period <- "12min"
     walk_test_12min_data$proportion <- "12min"
     if(length(which(walk_test_12min_data$duration < 705)) > 0){
       walk_test_12min_data[which(walk_test_12min_data$duration < 705),]$proportion <- "Partial"
     }
+    walk_test_12min_data$normalised_stepping <- walk_test_12min_data$steps / 12
 
-    max_steps <- chart_summary[which(chart_summary$category == "twelve min stepping"),]$duration
-    walk_test_data <- dplyr::bind_rows(walk_test_30s_data, walk_test_2min_data, walk_test_6min_data, walk_test_12min_data)
+    max_steps <- chart_summary[which(chart_summary$category == "2 min stepping"),]$duration / 2
+    max_steps <- (floor((max_steps - 0.5) / 25) + 1) * 25
+    walk_test_data <- dplyr::bind_rows(walk_test_30s_data, walk_test_2min_data, walk_test_6min_data)
     walk_test_data$uid <- factor(walk_test_data$uid, levels = individual_summary$uid)
     walk_test_data$period <- factor(walk_test_data$period,
-                                    levels = c("30s","2min","6min","12min"))
+                                    levels = c("30s","2min","6min"))
     walk_test_data$proportion <- factor(walk_test_data$proportion,
-                                        levels = c("30s","2min","6min","12min","Partial"))
+                                        levels = c("30s","2min","6min","Partial"))
 
     plot_data <- ggplot2::ggplot() +
-      ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=0, ymax=0, alpha=0.2, fill="grey85") +
-      ggplot2::geom_point(data = walk_test_data, ggplot2::aes(x = .data$uid, y = .data$steps, color = .data$period, fill = .data$proportion),
+      ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=0, ymax=max_steps, alpha=0.2, fill="grey85") +
+      ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=0, ymax=100, alpha=0.2, fill="grey60") +
+      ggplot2::geom_point(data = walk_test_data, ggplot2::aes(x = .data$uid, y = .data$normalised_stepping),
+                          shape = 21, size = 4, stroke = 0.5, color = "black") +
+      ggplot2::geom_point(data = walk_test_data, ggplot2::aes(x = .data$uid, y = .data$normalised_stepping, color = .data$period, fill = .data$proportion),
                           shape = 21, size = 2, stroke = 1.5) +
       ggplot2::xlab("") +
-      ggplot2::ylab("step count") +
-      ggplot2::scale_color_manual(values = c("#d9d9d9","#969696","#525252","#000000"), drop = FALSE) +
-      ggplot2::scale_fill_manual(values = c("#d9d9d9","#969696","#525252","#000000",grDevices::rgb(1,1,1,1)), drop = FALSE) +
+      ggplot2::ylab("accumulation (steps/min)") +
+      ggplot2::scale_color_manual(values = c("#feedde","#fd8d3c","#a63603"), drop = FALSE) +
+      ggplot2::scale_fill_manual(values = c("#feedde","#fd8d3c","#a63603",grDevices::rgb(1,1,1,1)), drop = FALSE) +
       ggplot2::scale_x_discrete(drop = FALSE) +
       ggplot2::scale_y_continuous(limit = c(0,max_steps),
-                         breaks = seq(0,max_steps,500),
-                         minor_breaks = seq(0,max_steps,100)) +
+                         breaks = seq(0,max_steps,25),
+                         minor_breaks = seq(0,max_steps,5)) +
       ggplot2::coord_flip() +
       ggplot2::theme(strip.background = element_blank(),
             strip.text.x = element_blank(),
@@ -690,7 +756,7 @@ generate.peak.stepping.cadence.chart <-
            chart_summary, individual_summary, standard_scale = FALSE, include_labels = TRUE){
     #' @import dplyr
     #' @import ggplot2
-    cadence_data <- median_cadence_data[which(median_cadence_data$group == "1 minute +"),]
+    cadence_data <- median_cadence_data[which(median_cadence_data$group == "1 - 10 minutes"),]
     cadence_data$uid <- factor(cadence_data$uid, levels = individual_summary$uid)
     short_cadence_data <- median_cadence_data[which(median_cadence_data$group == "< 1 minute"),]
     short_cadence_data$uid <- factor(short_cadence_data$uid, levels = individual_summary$uid)
@@ -720,21 +786,26 @@ generate.peak.stepping.cadence.chart <-
       walk_test_12min_data[which(walk_test_12min_data$duration < 705),]$proportion <- "Partial"
     }
 
-    walk_test_data <- dplyr::bind_rows(walk_test_30s_data, walk_test_2min_data, walk_test_6min_data, walk_test_12min_data)
+    walk_test_data <- dplyr::bind_rows(walk_test_30s_data, walk_test_2min_data, walk_test_6min_data)
     walk_test_data$uid <- factor(walk_test_data$uid, levels = individual_summary$uid)
     walk_test_data$period <- factor(walk_test_data$period,
-                                    levels = c("30s","2min","6min","12min"))
+                                    levels = c("30s","2min","6min"))
     walk_test_data$proportion <- factor(walk_test_data$proportion,
-                                    levels = c("30s","2min","6min","12min","Partial"))
+                                    levels = c("30s","2min","6min","Partial"))
 
-    walk_test_data <- dplyr::inner_join(walk_test_data,cadence_data, by = "uid")
+    walk_test_data <- dplyr::inner_join(walk_test_data,short_cadence_data, by = "uid")
     walk_test_data <- walk_test_data %>% dplyr::group_by(.data$uid) %>% dplyr::mutate(min_cadence = min(.data$cadence))
 
     min_cadence <- chart_summary[which(chart_summary$category == "min cadence"),]$duration
     max_cadence <- chart_summary[which(chart_summary$category == "peak cadence"),]$duration
 
     min_val <- min_cadence - (min_cadence %% 25)
+    min_val <- min(min_val, 75)
     max_val <- max_cadence - (max_cadence %% 25) + 25
+    max_val <- max(max_val, 150)
+
+    incomplete_walk_test_data <- walk_test_data %>%
+      filter(proportion == "Partial")
 
     plot_data <- ggplot2::ggplot() +
       ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=min_val, ymax=max_val, alpha=0.2, fill="grey85") +
@@ -744,12 +815,15 @@ generate.peak.stepping.cadence.chart <-
                                               color = .data$period, size = .data$period)) +
       ggplot2::geom_point(data = walk_test_data,
                           ggplot2::aes(x = .data$uid, y = .data$cadence, fill = .data$period),
-                          shape = 21, size = 3) +
+                          shape = 23, size = 3) +
+      ggplot2::geom_point(data = incomplete_walk_test_data,
+                          ggplot2::aes(x = .data$uid, y = .data$cadence), fill = "white", color = "black",
+                          shape = 23, size = 1) +
       ggplot2::xlab("") +
-      ggplot2::ylab("cadence (steps/min)") +
+      ggplot2::ylab("steps/min") +
       ggplot2::scale_size_manual(values = c(0.75,1,1.25,1.5), drop = FALSE) +
-      ggplot2::scale_fill_manual(values = c("#d9d9d9","#969696","#525252","#000000"), drop = FALSE) +
-      ggplot2::scale_color_manual(values = c("#dadaeb","#bcbddc","#807dba","#54278f"), drop = FALSE) +
+      ggplot2::scale_fill_manual(values = c("#feedde","#fd8d3c","#a63603"), drop = FALSE) +
+      ggplot2::scale_color_manual(values = c("#bcbddc","#807dba","#54278f"), drop = FALSE) +
       ggplot2::scale_x_discrete(drop = FALSE) +
       ggplot2::coord_flip() +
       ggplot2::theme(strip.background = element_blank(),
@@ -777,7 +851,9 @@ generate.indoor.stepping.cadence.chart <-
   function(median_cadence_data,
            chart_summary, individual_summary, standard_scale = FALSE, include_labels = TRUE){
     #' @import ggplot2
-    cadence_data <- median_cadence_data[which(median_cadence_data$group == "1 minute +"),]
+    long_cadence_data <- median_cadence_data[which(median_cadence_data$group == "10 minutes +"),]
+    long_cadence_data$uid <- factor(long_cadence_data$uid, levels = individual_summary$uid)
+    cadence_data <- median_cadence_data[which(median_cadence_data$group == "1 - 10 minutes"),]
     cadence_data$uid <- factor(cadence_data$uid, levels = individual_summary$uid)
     short_cadence_data <- median_cadence_data[which(median_cadence_data$group == "< 1 minute"),]
     short_cadence_data$uid <- factor(short_cadence_data$uid, levels = individual_summary$uid)
@@ -786,20 +862,22 @@ generate.indoor.stepping.cadence.chart <-
     max_cadence <- chart_summary[which(chart_summary$category == "median cadence max"),]$duration
 
     min_val <- min_cadence - (min_cadence %% 25)
+    min_val <- min(min_val,50)
     max_val <- max_cadence - (max_cadence %% 25) + 25
+    max_val <- max(max_val,125)
 
     plot_data <- ggplot2::ggplot() +
       ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=min_val, ymax=max_val, alpha=0.2, fill="grey85") +
       ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=min_val, ymax=100, alpha=0.2, fill="grey60") +
+      ggplot2::geom_point(data = long_cadence_data, ggplot2::aes(x = .data$uid, y = .data$median_cadence),
+                          shape = 23, size = 3, color = "black", fill = "#a63603") + # colorbrewer 7 class oranges (5)
       ggplot2::geom_point(data = cadence_data, ggplot2::aes(x = .data$uid, y = .data$median_cadence),
-                          shape = 23, size = 3, color = "black", fill = "#CB181D") +
+                          shape = 23, size = 3, color = "black", fill = "#fd8d3c") + # colorbrewer 7 class oranges (3)
       ggplot2::geom_point(data = short_cadence_data, ggplot2::aes(x = .data$uid, y = .data$median_cadence),
-                          shape = 23, size = 3, color = "black", fill = "#FEE5D9") +
+                          shape = 23, size = 3, color = "black", fill = "#feedde") + # colorbrewer 7 class oranges (1)
       ggplot2::xlab("") +
       ggplot2::ylab("steps/min") +
       ggplot2::scale_size_manual(values = c(0.75,1,1.25,1.5), drop = FALSE) +
-      ggplot2::scale_fill_manual(values = c("#d9d9d9","#969696","#525252","#000000"), drop = FALSE) +
-      ggplot2::scale_color_manual(values = c("#dadaeb","#bcbddc","#807dba","#54278f"), drop = FALSE) +
       ggplot2::scale_x_discrete(drop = FALSE) +
       ggplot2::coord_flip() +
       ggplot2::theme(strip.background = element_blank(),
@@ -828,14 +906,16 @@ generate.median.cadence.chart <-
     #' @import ggplot2
     median_cadence_data$uid <- factor(median_cadence_data$uid, levels = individual_summary$uid)
     median_cadence_max <- chart_summary[grep("median cadence max",chart_summary$category),]$duration
+    median_cadence_max <- median_cadence_max - (median_cadence_max %% 20) + 20
     median_cadence_min <- chart_summary[grep("median cadence min",chart_summary$category),]$duration
+    median_cadence_min <- median_cadence_min - (median_cadence_min %% 20)
 
     plot_data <- ggplot2::ggplot(data = median_cadence_data, ggplot2::aes(x = .data$uid, y = .data$median_cadence)) +
       ggplot2::annotate("rect", xmin=0, xmax=Inf, ymin=median_cadence_min, ymax=median_cadence_max, alpha=0.2, fill="grey85") +
       ggplot2::geom_point(ggplot2::aes(fill = .data$group), size = 3, shape = 23) +
       ggplot2::xlab("") +
       ggplot2::ylab("median steps / minute") +
-      ggplot2::scale_fill_manual(values = c("#FEE5D9","#CB181D"), drop = FALSE) +
+      ggplot2::scale_fill_manual(values = c("#c1908b","#c40012","#ed8f26"), drop = FALSE) +
       ggplot2::scale_x_discrete(drop = FALSE) +
       ggplot2::coord_flip() +
       ggplot2::theme(strip.background = element_blank(),

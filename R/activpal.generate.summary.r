@@ -136,7 +136,7 @@ build.daily.sedentary.bout.summary <-
 #################################################
 
 build.upright.summary <-
-  function(events_file_data){
+  function(events_file_data, upright_bouts = FALSE){
     #' @import dplyr
     days_per_events <- events_file_data %>%
       dplyr::select(.data$uid, .data$Date) %>%
@@ -146,7 +146,7 @@ build.upright.summary <-
     events_file_data <- events_file_data %>%
       dplyr::filter(.data$activity %in% c(1,2,2.1))
     if(nrow(events_file_data) > 0){
-      events_file_data <- categorise.stepping.bouts(events_file_data)
+      events_file_data <- categorise.stepping.bouts(events_file_data, upright_bouts = FALSE)
       upright_data <- generate.chart.data(events_file_data,days_per_events)
     }else{
       upright_data <- data.frame(days_per_events$uid)
@@ -160,14 +160,33 @@ build.upright.summary <-
   }
 
 categorise.stepping.bouts <-
-  function(events_data){
-    events_data$bout_length <- "Stepping (1 minute +)"
-    events_data[which(events_data$activity == 2 & events_data$interval < 60),]$bout_length <-"Stepping (< 1 minute)"
+  function(events_data, upright_bouts = FALSE){
+    if(upright_bouts){
+      longest_stepping <- events_data %>%
+        filter(activity == 2) %>%
+        group_by(upright_bout) %>%
+        summarise(max_stepping = max(interval))
+      events_data <- left_join(events_data, longest_stepping, by = c("upright_bout"))
+      events_data[is.na(events_data)] <- 0
+
+      events_data$bout_length <- "Stepping (10 minutes +)"
+      events_data[which(events_data$activity == 2 & events_data$max_stepping < 600),]$bout_length <- "Stepping (1 - 10 minutes)"
+      events_data[which(events_data$activity == 2 & events_data$max_stepping < 60),]$bout_length <- "Stepping (< 1 minute)"
+      events_data[which(events_data$activity == 1),]$bout_length <- "Quiet Standing"
+      if(length(which(events_data$activity == 2.1)) > 0){
+        events_data[which(events_data$activity == 2.1),]$bout_length <- "Cycling"
+      }
+      events_data <- events_data[,c(which(colnames(events_data) == "max_stepping"))]
+
+      return(events_data)
+    }
+    events_data$bout_length <- "Stepping (10 minutes +)"
+    events_data[which(events_data$activity == 2 & events_data$interval < 600),]$bout_length <- "Stepping (1 - 10 minutes)"
+    events_data[which(events_data$activity == 2 & events_data$interval < 60),]$bout_length <- "Stepping (< 1 minute)"
     events_data[which(events_data$activity == 1),]$bout_length <- "Quiet Standing"
     if(length(which(events_data$activity == 2.1)) > 0){
       events_data[which(events_data$activity == 2.1),]$bout_length <- "Cycling"
     }
-
     return(events_data)
   }
 
@@ -239,9 +258,14 @@ build.stepping.intensity.summary <-
     events_file_data[which(events_file_data$cadence < 125),]$category <- "MVPA (100 - 125 spm)"
     events_file_data[which(events_file_data$cadence < 100),]$category <- "MPA (75 - 100 spm)"
     events_file_data[which(events_file_data$cadence < 75),]$category <- "LPA (< 75 spm)"
+    events_file_data$category <- factor(events_file_data$category,
+                                        levels = c("VPA (> 125 spm)","MVPA (100 - 125 spm)",
+                                                   "MPA (75 - 100 spm)","LPA (< 75 spm)"))
 
     events_file_data$duration <- "long (>= 60s)"
     events_file_data[which(events_file_data$longest_bout < 60),]$duration <- "short (< 60s)"
+    events_file_data$duration <- factor(events_file_data$duration,
+                                        levels = c("short (< 60s)","long (>= 60s)"))
 
     stepping_summary <- events_file_data %>%
       dplyr::group_by(.data$uid, .data$Date, .data$category, .data$duration) %>%
@@ -253,6 +277,38 @@ build.stepping.intensity.summary <-
       dplyr::select(.data$uid, .data$category, .data$duration, .data$time)
 
     stepping_summary$short_percent <- round((sum(stepping_summary[which(stepping_summary$duration == "short (< 60s)"),]$time) / sum(stepping_summary$time) * 100),1)
+    return(stepping_summary)
+  }
+
+build.bouted.stepping.summary <-
+  function(events_file_data){
+    #' @import dplyr
+    events_file_data$interval <- round(events_file_data$interval, 1)
+    events_file_data <- group.stepping.by.upright.bout(events_file_data)
+    events_file_data <- events_file_data %>%
+      dplyr::filter(.data$steps > 0) %>%
+      dplyr::mutate(cadence = .data$steps / (.data$interval / 60)) %>%
+      dplyr::group_by(.data$upright_bout) %>%
+      dplyr::mutate(longest_bout = max(.data$interval))
+
+    events_file_data$duration <- "long"
+    events_file_data[which(events_file_data$longest_bout < 600),]$duration <- "intermediate"
+    events_file_data[which(events_file_data$longest_bout < 60),]$duration <- "short"
+    events_file_data$duration <- factor(events_file_data$duration,
+                                        levels = c("long","intermediate","short"))
+
+    stepping_summary <- events_file_data %>%
+      dplyr::group_by(.data$uid, .data$Date, .data$duration) %>%
+      dplyr::summarise(steps = sum(.data$steps)) %>%
+      dplyr::group_by(.data$uid, .data$duration) %>%
+      dplyr::summarise(steps = sum(.data$steps)) %>%
+      dplyr::mutate(steps = .data$steps / length(unique(events_file_data$Date))) %>%
+      tidyr::complete(.data$duration) %>%
+      tidyr::replace_na(list(steps = 0))
+
+    stepping_summary <- stepping_summary %>%
+      dplyr::select(.data$uid, .data$duration, .data$steps)
+
     return(stepping_summary)
   }
 
@@ -395,4 +451,66 @@ group.stepping.by.upright.bout <-
       rep(0,length(which(!data$activity %in% c(1,2.0,2.1,2.2))))
 
     return(data)
+  }
+
+#################################################
+
+build.activity.summary <-
+  function(events_file_data){
+    #' @import dplyr
+    #' @import tidyr
+    activity_periods <- events_file_data %>%
+      tidyr::expand(.data$uid, .data$Date)
+    all_events <- events_file_data %>%
+      dplyr::group_by(.data$uid, .data$Date) %>%
+      dplyr::summarise(total_events = sum(event_count),
+                       total_duration = round(sum(interval)/60,1))
+    sedentary_events <- events_file_data %>%
+      dplyr::filter(activity %in% c(0,3.2,5)) %>%
+      dplyr::group_by(.data$uid, .data$Date) %>%
+      dplyr::summarise(sedentary_events = sum(event_count),
+                       sedentary_duration = round(sum(interval)/60,1))
+    standing_events <- events_file_data %>%
+      dplyr::filter(activity %in% c(2)) %>%
+      dplyr::group_by(.data$uid, .data$Date) %>%
+      dplyr::summarise(standing_events = sum(event_count),
+                       standing_duration = round(sum(interval)/60,1))
+    stepping_events <- events_file_data %>%
+      dplyr::filter(activity %in% c(2)) %>%
+      dplyr::group_by(.data$uid, .data$Date) %>%
+      dplyr::summarise(stepping_events = sum(event_count),
+                       stepping_duration = round(sum(interval)/60,1))
+    cycling_events <- events_file_data %>%
+      dplyr::filter(activity %in% c(2.1)) %>%
+      dplyr::group_by(.data$uid, .data$Date) %>%
+      dplyr::summarise(cycling_events = sum(event_count),
+                       cycling_duration = round(sum(interval)/60,1))
+    lying_events <- events_file_data %>%
+      dplyr::filter(activity %in% c(3.1)) %>%
+      dplyr::group_by(.data$uid, .data$Date) %>%
+      dplyr::summarise(lying_events = sum(event_count),
+                       lying_duration = round(sum(interval)/60,1))
+    non_wear_events <- events_file_data %>%
+      dplyr::filter(activity %in% c(4)) %>%
+      dplyr::group_by(.data$uid, .data$Date) %>%
+      dplyr::summarise(non_wear_events = sum(event_count),
+                       non_wear_duration = round(sum(interval)/60,1))
+
+    activity_summary <- dplyr::left_join(activity_periods, all_events,
+                                         by = c("uid","Date"))
+    activity_summary <- dplyr::left_join(activity_summary, sedentary_events,
+                                         by = c("uid","Date"))
+    activity_summary <- dplyr::left_join(activity_summary, standing_events,
+                                         by = c("uid","Date"))
+    activity_summary <- dplyr::left_join(activity_summary, stepping_events,
+                                         by = c("uid","Date"))
+    activity_summary <- dplyr::left_join(activity_summary, cycling_events,
+                                         by = c("uid","Date"))
+    activity_summary <- dplyr::left_join(activity_summary, lying_events,
+                                         by = c("uid","Date"))
+    activity_summary <- dplyr::left_join(activity_summary, non_wear_events,
+                                         by = c("uid","Date"))
+    activity_summary[is.na(activity_summary)] <- 0
+    activity_summary$Date <- as.Date(activity_summary$Date, origin = "1970-01-01")
+    return(activity_summary)
   }

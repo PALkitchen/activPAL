@@ -37,7 +37,7 @@ process.events.file.folder <-
   }
 
 process.events.file <-
-  function(folder, file_name, validation_list, minimum_wear_time, prefix_delimiter = NULL, prefix_length = NULL, pal_batch_format = FALSE){
+  function(folder, file_name, validation_list, minimum_wear_time, prefix_delimiter = NULL, prefix_length = NULL, pal_batch_format = FALSE, split_days = TRUE){
     # Assumes that the name of the events files contain the text Events in the file name
     events_file <- open.events.extended.file(paste(folder,file_name,sep=""))
     if(ncol(events_file) == 1){
@@ -47,7 +47,7 @@ process.events.file <-
     events_file_days <- as.data.frame(unique(as.Date(events_file$Time)))
     colnames(events_file_days) <- "Date"
 
-    events_file <- activpal.extended.events.file.process(events_file, wear_time_minimum = minimum_wear_time * 3600)
+    events_file <- activpal.extended.events.file.process(events_file, wear_time_minimum = minimum_wear_time * 3600, split_events = split_days)
 
     if(nrow(events_file) > 0){
       events_file$Date <- as.Date(events_file$time)

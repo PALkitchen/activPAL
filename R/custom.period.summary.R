@@ -6,23 +6,31 @@ custom.period.summary <-
     walk_test_6_min <- activpal.stepping.process.file.by.period(full_events_file,360,86400,custom_periods)
     walk_test_12_min <- activpal.stepping.process.file.by.period(full_events_file,720,86400,custom_periods)
 
-    walk_test_30_s <- format.walk.test.by.period(walk_test_30_s, "30_seconds")
-    walk_test_2_min <- format.walk.test.by.period(walk_test_2_min, "2_minute")
-    walk_test_6_min <- format.walk.test.by.period(walk_test_6_min, "6_minute")
-    walk_test_12_min <- format.walk.test.by.period(walk_test_12_min, "12_minute")
-
     observation_summary <- custom_periods[,c(5,1,2,3,4)]
     colnames(observation_summary)[c(1,3:5)] <- c("uid","period_name","period_start","period_end")
-    observation_summary$period_duration <- round(as.numeric(difftime(observation_summary$period_end,
-                                                                    observation_summary$period_start,
-                                                                    units = "hours")),3)
+    # observation_summary$period_duration <- round(as.numeric(difftime(observation_summary$period_end,
+    #                                                                  observation_summary$period_start,
+    #                                                                  units = "hours")),3)
 
-    walk_test_summary <- dplyr::inner_join(observation_summary,
-                                           dplyr::inner_join(dplyr::inner_join(dplyr::inner_join(
-                                             walk_test_30_s,walk_test_2_min, by = c("period_name","period_date")),
-                                             walk_test_6_min, by = c("period_name","period_date")),
-                                             walk_test_12_min, by = c("period_name","period_date")),
-                                           walk_test_12_min, by = c("period_name","period_date"))
+    if(nrow(walk_test_30_s) == 0){
+      walk_test_summary <- observation_summary
+      walk_test_summary$peak_steps_30_seconds <- 0
+      walk_test_summary$peak_steps_2_minute <- 0
+      walk_test_summary$peak_steps_6_minute <- 0
+      walk_test_summary$peak_steps_12_minute <- 0
+    }else{
+      walk_test_30_s <- format.walk.test.by.period(walk_test_30_s, "30_seconds")
+      walk_test_2_min <- format.walk.test.by.period(walk_test_2_min, "2_minute")
+      walk_test_6_min <- format.walk.test.by.period(walk_test_6_min, "6_minute")
+      walk_test_12_min <- format.walk.test.by.period(walk_test_12_min, "12_minute")
+
+      walk_test_summary <- dplyr::inner_join(observation_summary,
+                                             dplyr::inner_join(dplyr::inner_join(dplyr::inner_join(
+                                               walk_test_30_s,walk_test_2_min, by = c("period_name","period_date")),
+                                               walk_test_6_min, by = c("period_name","period_date")),
+                                               walk_test_12_min, by = c("period_name","period_date")),
+                                             walk_test_12_min, by = c("period_name","period_date"))
+    }
 
     lying_time_breaks <- process.breaks.in.time.in.bed.by.period(events_file_data)
     lying_time_breaks <- lying_time_breaks %>% dplyr::filter(!is.na(period_name))
@@ -51,7 +59,7 @@ custom.period.summary <-
     travel_data <- format.travel.data.by.period(travel_data)
     travel_data[,c(4:ncol(travel_data)),] <- round(travel_data[,c(4:ncol(travel_data)),],3)
 
-    median_cadence_data <- median.cadence.bands.by.period(events_file_data)
+    median_cadence_data <- median.cadence.bands.by.period(events_file_data,id, upright_bout = FALSE)
     median_cadence_data <- format.median.cadence.by.period(median_cadence_data)
     median_cadence_data[,c(4:ncol(median_cadence_data)),] <- round(median_cadence_data[,c(4:ncol(median_cadence_data)),],1)
 
@@ -67,6 +75,8 @@ custom.period.summary <-
       dplyr::summarise(Steps = sum(.data$steps))
     daily_stepping_data$period_date <- as.Date(daily_stepping_data$period_date, origin = "1970-01-01")
 
+    activity_data <- build.activity.summary.by.period(events_file_data, custom_periods)
+
     observation_summary <- dplyr::left_join(observation_summary, sedentary_data, by = c("uid","period_name","period_date"))
     observation_summary <- dplyr::left_join(observation_summary, lying_time_breaks, by = c("uid","period_name","period_date"))
     observation_summary <- dplyr::left_join(observation_summary, daily_stepping_data, by = c("uid","period_name","period_date"))
@@ -76,6 +86,7 @@ custom.period.summary <-
     observation_summary <- dplyr::left_join(observation_summary, median_cadence_data, by = c("uid","period_name","period_date"))
     observation_summary <- dplyr::left_join(observation_summary, travel_data, by = c("uid","period_name","period_date"))
     observation_summary <- dplyr::left_join(observation_summary, walk_test_summary, by = c("uid","period_name","period_date","period_start","period_end"))
+    observation_summary <- dplyr::left_join(observation_summary, activity_data, by = c("uid","period_name","period_date"))
 
     observation_summary[is.na(observation_summary)] <- 0
 
@@ -94,7 +105,7 @@ format.walk.test.by.period <-
 format.upright.data.by.period <-
   function(upright_data){
     upright_data$bout_length <- factor(upright_data$bout_length,
-    levels = c("Quiet Standing","Stepping (< 1 minute)","Stepping (1 minute +)"))
+    levels = c("Quiet Standing","Stepping (< 1 minute)","Stepping (1 - 10 minutes)","Stepping (10 minutes +)"))
     upright_summary <- upright_data[,-c(6)] %>%
       dplyr::filter(!is.na(period_name)) %>%
       dplyr::filter(bout_length != "Cycling") %>%
@@ -128,10 +139,10 @@ format.mvpa.data.by.period <-
 format.median.cadence.by.period <-
   function(median_cadence_data){
     median_cadence_data <- median_cadence_data %>%
-      dplyr::filter(!is.na(period_name)) %>%
+      dplyr::filter(!is.na(group)) %>%
       mutate(group = paste("Median Cadence ",group,sep=""))
     median_cadence_data$group <- factor(median_cadence_data$group,
-                                        levels = c("Median Cadence < 1 minute","Median Cadence 1 minute +"))
+                                        levels = c("Median Cadence < 1 minute","Median Cadence 1 - 10 minutes","Median Cadence 10 minutes +"))
     median_cadence_data <- median_cadence_data %>%
       tidyr::pivot_wider(names_from = "group", values_from = "median_cadence", names_expand = TRUE)
     return(median_cadence_data)

@@ -48,26 +48,85 @@ load.lookup.period.file <-
     return(lookup_file)
   }
 
+pad.period.data <-
+  function(lookup_data, events_start, events_end){
+    rows <- nrow(lookup_data) - 1
+    if(rows > 0){
+      for(i in (1:rows)){
+        if(lookup_data[i,]$end_date < lookup_data[(i+1),]$start_date){
+          lookup_data[nrow(lookup_data)+1,]$period_date <- as.Date(lookup_data[i,]$end_date)
+          lookup_data[nrow(lookup_data),]$category <- paste("Padding_",i,sep="")
+          lookup_data[nrow(lookup_data),]$start_date <- lookup_data[i,]$end_date
+          lookup_data[nrow(lookup_data),]$end_date <- lookup_data[i+1,]$start_date
+          lookup_data[nrow(lookup_data),]$id <- lookup_data[i,]$id
+        }
+      }
+    }
+    lookup_data <- lookup_data %>% dplyr::arrange(start_date)
+    if(lookup_data[1,]$start_date > events_start){
+      lookup_data[nrow(lookup_data)+1,]$period_date <- as.Date(events_start)
+      lookup_data[nrow(lookup_data),]$category <- "Padding_0"
+      lookup_data[nrow(lookup_data),]$start_date <- events_start
+      lookup_data[nrow(lookup_data),]$end_date <- lookup_data[1,]$start_date
+      lookup_data[nrow(lookup_data),]$id <- lookup_data[1,]$id
+    }
+    lookup_data <- lookup_data %>% dplyr::arrange(start_date)
+    if(lookup_data[nrow(lookup_data),]$end_date < events_end){
+      lookup_data[nrow(lookup_data)+1,]$period_date <- as.Date(lookup_data[nrow(lookup_data),]$end_date)
+      lookup_data[nrow(lookup_data),]$category <- "Padding_n"
+      lookup_data[nrow(lookup_data),]$start_date <- lookup_data[nrow(lookup_data)-1,]$end_date
+      lookup_data[nrow(lookup_data),]$end_date <- events_end
+      lookup_data[nrow(lookup_data),]$id <- lookup_data[nrow(lookup_data)-1,]$id
+    }
+    lookup_data <- lookup_data %>% dplyr::arrange(start_date)
+
+    return(lookup_data)
+  }
+
 set.custom.periods <-
-  function(events_file_data,lookup_data){
+  function(events_file_data,full_events_file,lookup_data){
     library(magrittr)
     if(nrow(lookup_data) > 0){
       events_file_data$period_date <- NA
       events_file_data$period_name <- NA
       event_end <- events_file_data$time + events_file_data$interval
 
-      compare_data <- events_file_data
+      events_file_data$end_time <- events_file_data$time + events_file_data$interval
+      # Add padding if missing sections
       for(i in (1:nrow(lookup_data))){
-        periods <- which(compare_data$time >= lookup_data[i,]$start_date & event_end <= lookup_data[i,]$end_date)
+        # Lookup period is completely within a single event
+        event_end <- events_file_data$time + events_file_data$interval
+        periods <- which(events_file_data$time < lookup_data[i,]$start_date & events_file_data$end_time > lookup_data[i,]$end_date)
+        if(length(periods) > 0){
+          start_event <- which(events_file_data$time < lookup_data[i,]$start_date & event_end > lookup_data[i,]$start_date)
+          end_event <- which(events_file_data$time < lookup_data[i,]$end_date & event_end > lookup_data[i,]$end_date)
+
+          events_file_data <- split.event(events_file_data, full_events_file, start_event, lookup_data[i,]$start_date, as.Date(lookup_data[i,]$start_date), lookup_data[i,]$category)
+          events_file_data <- split.event(events_file_data, full_events_file, nrow(events_file_data), lookup_data[i,]$end_date, as.Date(lookup_data[i,]$start_date), lookup_data[i,]$category)
+          events_file_data[nrow(events_file_data)-1,]$period_date <- lookup_data[i,]$period_date
+          events_file_data[nrow(events_file_data)-1,]$period_name <- lookup_data[i,]$category
+        }else{
+          periods <- which(events_file_data$time >= lookup_data[i,]$start_date & events_file_data$time <= lookup_data[i,]$end_date)
+          if(length(periods) > 0){
+            start_event <- which(events_file_data$time <= lookup_data[i,]$start_date & event_end >= lookup_data[i,]$start_date)
+            if(length(start_event) > 1){
+              start_event <- min(start_event)
+            }
+            end_event <- which(events_file_data$time <= lookup_data[i,]$end_date & event_end >= lookup_data[i,]$end_date)
+            if(length(end_event) > 1){
+              end_event <- max(end_event)
+            }
+            events_file_data <- split.event(events_file_data, full_events_file, start_event, lookup_data[i,]$start_date, as.Date(lookup_data[i,]$start_date), lookup_data[i,]$category)
+            events_file_data <- split.event(events_file_data, full_events_file, end_event, lookup_data[i,]$end_date, as.Date(lookup_data[i,]$start_date), lookup_data[i,]$category)
+          }
+        }
+      }
+      event_end <- events_file_data$time + events_file_data$interval
+      for(i in (1:nrow(lookup_data))){
+        periods <- which(events_file_data$time >= lookup_data[i,]$start_date & events_file_data$time < lookup_data[i,]$end_date)
         if(length(periods) > 0){
           events_file_data[periods,]$period_date <- as.Date(lookup_data[i,]$start_date, origin = "1970-01-01")
           events_file_data[periods,]$period_name <- lookup_data[i,]$category
-
-          start_event <- which(compare_data$time <= lookup_data[i,]$start_date & event_end >= lookup_data[i,]$start_date)
-          end_event <- which(compare_data$time <= lookup_data[i,]$end_date & event_end >= lookup_data[i,]$end_date)
-
-          events_file_data <- split.event(events_file_data, start_event, lookup_data[i,]$start_date, as.Date(lookup_data[i,]$start_date), lookup_data[i,]$category, "START")
-          events_file_data <- split.event(events_file_data, end_event, lookup_data[i,]$end_date, as.Date(lookup_data[i,]$start_date), lookup_data[i,]$category, "END")
         }
       }
     }
@@ -131,20 +190,18 @@ get.calendar.day.periods <-
   }
 
 split.event <-
-  function(data, pos, split_time, period_date, period_category, insert_position = "START"){
+  function(data, full_data, pos, split_time, period_date, period_category){
     if(length(pos) == 0){
       return(data)
     }
     split_event <- data[pos,]
     time_diff <- round(as.numeric(difftime(split_time,data[pos,]$time,units = "secs")), 1)
 
-    data[pos,]$period_date <- period_date
-    data[pos,]$period_name <- period_category
-
-    if(time_diff != split_event$interval){
+    if(time_diff != split_event$interval & time_diff != 0){
       if(data[pos,]$activity %in% c(2,2.1)){
-        pre_steps <- split_event$steps * (time_diff / (split_event$interval - time_diff))
-        pre_steps <- pre_steps - (pre_steps %% 2)
+        pre_steps <- length(which(full_data$time >= split_event[1,]$time &
+                                    (full_data$time < (split_time))))
+        pre_steps <- pre_steps * 2
         data[pos,]$steps <- pre_steps
         data[pos,]$cumulative_steps <- data[pos,]$cumulative_steps - (split_event$steps - pre_steps)
         split_event$steps <- split_event$steps - pre_steps
@@ -152,19 +209,13 @@ split.event <-
 
       split_event$time <- split_time
       split_event$interval <- split_event$interval - time_diff
-      split_event$period_date <- period_date
-      split_event$period_name <- period_category
 
-      data[pos,]$interval <- time_diff
+      if(split_event$interval > 0){
+        data[pos,]$interval <- time_diff
 
-      data$period_date <- as.Date(data$period_date, origin = "1970-01-01")
-      if(insert_position == "START"){
-        data[pos,]$period_name = NA
-      }else{
-        split_event$period_name = NA
+        data$period_date <- as.Date(data$period_date, origin = "1970-01-01")
+        data <- dplyr::bind_rows(data, split_event)
       }
-      data <- dplyr::bind_rows(data, split_event)
-
     }
     return(data)
   }

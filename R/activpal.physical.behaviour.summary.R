@@ -1,8 +1,8 @@
 generate.physical.behaviour.summary <-
-  function(input_folder, period_file = NULL, chart_title, output_folder = "",
+  function(input_folder, slice_file = NULL, chart_title, output_folder = "",
            prefix_delimiter = NULL, prefix_length = NULL, fill_gaps = FALSE,
            minimum_wear_time = 20, anonymise = FALSE,
-           generate_chart = TRUE, standard_scales = FALSE, sort_order = "MEDIAN_DAILY_STEP_COUNT"){
+           generate_chart = TRUE, standard_scales = FALSE, sort_order = "MEDIAN_DAILY_STEP_COUNT", period_file = NULL){
     #' Generates a PDF that visualises a range of summary physical behaviour outcomes for a group of individuals. \cr
     #' Outcomes are also exported in two csv files, with outcomes aggregated by calendar day and
     #' EventsExended classified waking day / time in bed
@@ -33,18 +33,25 @@ generate.physical.behaviour.summary <-
     #'
     #' @param input_folder The folder where the events files (format *EventsEx.csv)
     #'     and optional rise time files (format *RiseSitData.csv) to be processed are saved.
-    #' @param period_file The location of a csv files containing the details of custom periods to
+    #' @param slice_file The location of a csv files containing the details of custom time slices to
     #'     to be used when analysing the supplied events files.
     #'
     #'     If the location of a valid file is supplied the csv file with the suffix "_Custom_Summary"
     #'     will be generated containing the outcomes using the supplied periods.
     #'
+    #'     An additional validation will be carried out to check the events that span the boundaries
+    #'     of one or more slice are correctly processed (both in terms of correctly calculating the
+    #'     duration of the event occurring within the slice and that events are not double counted
+    #'     across multiple slices). A file with the suffix "_Events_Validation" will be generated
+    #'     that reports the number of events occurring in each file, the number of events counted within
+    #'     the specified slices and if the event processing generated a valid output.
+    #'
     #'     Each row defines a single observation for a single events file. The following columns
     #'     must be in the spreadsheet.
-    #'     filename = an identifier for the events file that the period is for.  This should be
+    #'     filename = an identifier for the events file that the slice is for.  This should be
     #'     the same as the identifier generated using the prefix_delimiter and prefix_length parameters
-    #'     startime = the starting time of the period
-    #'     endtime = the ending time of the period
+    #'     startime = the starting time of the slice
+    #'     endtime = the ending time of the slice
     #'     The function will attempt to parse the supplied times in the following order
     #'     "YYYY-mm-dd HH:MM", "YYYY-mm-dd HH:MM:SS", "YYYY-dd-mm HH:MM", "YYYY-dd-mm HH:MM:SS",
     #'     "dd/mm/YYYY HH:MM", "dd/mm/YYYY HH:MM:SS", "mm/dd/YYYY HH:MM", "mm/dd/YYYY HH:MM:SS"
@@ -87,7 +94,7 @@ generate.physical.behaviour.summary <-
                            "DAILY_SEDENTARY_BOUTS","DAILY_TIB_INTERRUPTIONS","STEPPING_BOUTS_UNDER_1_MIN",
                            "PEAK_2_MIN_STEPPING", "PEAK_6_MIN_STEPPING", "PEAK_12_MIN_STEPPING",
                            "DAILY_PEAK_30_SECOND_STEPPING", "MEDIAN_DAILY_STEP_COUNT","MEDIAN_RISE_TIME",
-                           "MEDIAN_CADENCE_TO_1_MINUTE","MEDIAN_CADENCE_1_MINUTE_PLUS", "STEPPING_INTENSITY","UID")
+                           "MEDIAN_CADENCE_TO_1_MINUTE","MEDIAN_CADENCE_1_MINUTE_PLUS", "STEPPING_INTENSITY")
     sort_order_names <- c("Sedentary","Time in Bed", "Standing", "Stepping",
                           "Sedentary Bouts", "TiB Breaks", "Stepping Under 1 Min",
                           "Walk 2 Min", "Walk 6 Min", "Walk 12 Min", "Walk 30 s", "Median Daily Steps", "Median Rise Time",
@@ -117,7 +124,11 @@ generate.physical.behaviour.summary <-
     }
 
     validation_data <- load.validation.data(input_folder,validation_data)
-    lookup_data <- load.lookup.period.file(period_file, fill_gaps)
+    if(!is.null(period_file) & is.null(slice_file)) {
+      warning("the argument period_file has been deprecated. The argument slice_file should be used instead.")
+      slice_file <- period_file
+    }
+    lookup_data <- load.lookup.period.file(slice_file, fill_gaps)
 
     valid_days <- list()
 
@@ -132,8 +143,11 @@ generate.physical.behaviour.summary <-
     stepping_data <- list()
     travel_data <- list()
     mvpa_data <- list()
+    bouted_stepping_data <- list()
     daily_stepping_data <- list()
     time_first_step_data <- list()
+    activity_data <- list()
+    events_validation_data <- list()
 
     median_rise_time_data <- list()
     median_cadence_data <- list()
@@ -145,10 +159,7 @@ generate.physical.behaviour.summary <-
     waking_day_summary <- list()
     custom_period_summary <- list()
 
-    median_rise_time <- process.rise.time(input_folder)
-    if(!is.null(median_rise_time)){
-      median_rise_time$uid <- parse.file.name(median_rise_time$uid, prefix_delimiter, prefix_length)
-    }
+    median_rise_time <- process.rise.time(input_folder, prefix_delimiter, prefix_length)
 
     skipped_files <- c()
     minimum_wear_minutes <- 3600 * minimum_wear_time
@@ -161,9 +172,15 @@ generate.physical.behaviour.summary <-
 
         if(!is.null(events_file_data)){
           full_events_file <- load.full.events.file(input_folder, file_names[i])
+          full_events_file$time <- as.POSIXct(full_events_file$Time.approx,
+                                              format = "%Y-%m-%d %H:%M:%S", tz ="UTC")
 
           events_file_data_calendar <- set.calendar.day.periods(events_file_data)
+          events_file_data_calendar <- tag.events.with.period(events_file_data_calendar)
+
           events_file_data_waking_day <- set.waking.day.periods(events_file_data)
+          events_file_data_waking_day <- tag.events.with.period(events_file_data_waking_day)
+
           calendar_day_periods <- get.calendar.day.periods(events_file_data_calendar, file_uid)
           calendar_day_periods$period_date <- as.Date(calendar_day_periods$period_date, origin = "1970-01-01")
           waking_day_periods <- get.waking.day.periods(events_file_data_waking_day, file_uid)
@@ -171,8 +188,37 @@ generate.physical.behaviour.summary <-
           if(!is.null(lookup_data)){
             custom_periods <- lookup_data %>% dplyr::filter(id == file_uid)
             if(nrow(custom_periods) > 0){
-              events_file_data_custom <- set.custom.periods(events_file_data,custom_periods)
-              custom_period_summary[[i]] <- custom.period.summary(input_folder,file_names[i],file_uid,events_file_data_custom,full_events_file,custom_periods)
+              custom_events_import <- process.events.file(input_folder, file_names[i], validation_data, 0, prefix_delimiter, prefix_length, split_days = FALSE)
+              custom_events_file_data <- custom_events_import[[1]]
+
+              custom_periods_padded <- pad.period.data(custom_periods,
+                                                       custom_events_file_data[1,]$time,
+                                                       custom_events_file_data[nrow(custom_events_file_data),]$time +
+                                                         custom_events_file_data[nrow(custom_events_file_data),]$interval)
+              events_file_data_custom <- set.custom.periods(custom_events_file_data,full_events_file,custom_periods_padded)
+              events_file_data_custom <- tag.events.with.period(events_file_data_custom)
+              single_custom_period_summary <- custom.period.summary(input_folder,file_names[i],file_uid,events_file_data_custom,full_events_file,custom_periods_padded)
+              colnames(custom_periods) <- c("period_date","period_name","period_start","period_end","uid")
+
+              events_in_file <- nrow(custom_events_file_data)
+              events_outwith_slices <- sum(single_custom_period_summary$total_events)
+
+              single_custom_period_summary <- inner_join(custom_periods, single_custom_period_summary, by = c("period_date", "period_name", "period_start", "period_end", "uid"))
+
+              events_within_slices <- sum(single_custom_period_summary$total_events)
+              events_outwith_slices <- events_outwith_slices - events_within_slices
+              classification_score <- "Pass"
+              if(events_in_file != (events_within_slices + events_outwith_slices)){
+                classification_score <- "Fail"
+              }
+
+              custom_period_summary[[i]] <- single_custom_period_summary
+
+              events_validation_data[[i]] <- data.frame(file_id = file_uid,
+                                                        events_in_file = events_in_file,
+                                                        events_within_slices = events_within_slices,
+                                                        events_outwith_slices = events_outwith_slices,
+                                                        validation_result = classification_score)
             }
           }
           waking_day_summary[[i]] <- custom.period.summary(input_folder,file_names[i],file_uid,events_file_data_waking_day,full_events_file,waking_day_periods)
@@ -189,7 +235,7 @@ generate.physical.behaviour.summary <-
               median_rise_time_data[[i]] <- median_rise_time[which(median_rise_time$uid == file_uid),]
             }
 
-            median_cadence_data[[i]] <- median.cadence.bands.file(events_file_data, file_uid)
+            median_cadence_data[[i]] <- median.cadence.bands.file(events_file_data, file_uid, upright_bout = TRUE)
 
             walk_test_2_min <- activpal.stepping.process.file(input_folder,file_names[i],file_uid,valid_days[[i]],120,86400,minimum_wear_minutes,FALSE)
             walk_test_6_min <- activpal.stepping.process.file(input_folder,file_names[i],file_uid,valid_days[[i]],360,86400,minimum_wear_minutes,FALSE)
@@ -215,11 +261,13 @@ generate.physical.behaviour.summary <-
             non_wear_data[[i]] <- build.non.wear.summary(events_file_data)
 
             sedentary_data[[i]] <- build.sedentary.summary(events_file_data)
-            upright_data[[i]] <- build.upright.summary(events_file_data)
+            upright_data[[i]] <- build.upright.summary(events_file_data,TRUE)
             stepping_data[[i]] <- build.stepping.summary(events_file_data)
             travel_data[[i]] <- build.travel.summary(events_file_data)
             mvpa_data[[i]] <- build.stepping.intensity.summary(events_file_data)
+            bouted_stepping_data[[i]] <- build.bouted.stepping.summary(events_file_data)
             time_first_step_data[[i]] <- build.time.to.first.step.summary(events_file_data)
+            # activity_data[[i]] <- build.activity.summary(events_file_data)
 
             daily_stepping_data[[i]] <- events_file_data %>%
               dplyr::group_by(uid, date = Date) %>%
@@ -249,8 +297,10 @@ generate.physical.behaviour.summary <-
         stepping_data[[i]] <<- NULL
         travel_data[[i]] <<- NULL
         mvpa_data[[i]] <<- NULL
+        bouted_stepping_data[[i]] <<- NULL
         time_first_step_data[[i]] <<- NULL
         daily_stepping_data[[i]] <<- NULL
+        # activity_data[[i]] <<- NULL
         skipped_files <<- c(skipped_files, paste(file_names[i],";",
                                                  substr(paste(c,sep=""), 1, regexpr(":",paste(c,sep=""))[1]-1),";",
                                                  substr(paste(c,sep=""), regexpr(":",paste(c,sep=""))[1]+2, nchar(paste(c,sep=""))-1),sep=""))
@@ -272,14 +322,20 @@ generate.physical.behaviour.summary <-
     if(length(custom_period_summary) > 0){
       message("Outputting Custom Period Output")
       custom_period_summary <- dplyr::bind_rows(custom_period_summary)
+      custom_period_summary <- format.summary.outcomes(custom_period_summary)
+
+      events_validation_data <- dplyr::bind_rows(events_validation_data)
       if(output_folder == ""){
         write.csv(custom_period_summary, paste(chart_title, "_Custom_Summary.csv", sep=""), row.names = FALSE)
+        write.csv(events_validation_data, paste(chart_title, "_Events_Validation.csv", sep=""), row.names = FALSE)
       }else{
         write.csv(custom_period_summary, paste(output_folder, "/", chart_title, "_Custom_Summary.csv", sep=""), row.names = FALSE)
+        write.csv(events_validation_data, paste(chart_title, "_Events_Validation.csv", sep=""), row.names = FALSE)
       }
     }
     message("Outputting Waking Day Output")
     waking_day_summary <- dplyr::bind_rows(waking_day_summary)
+    waking_day_summary <- format.summary.outcomes(waking_day_summary)
     if(output_folder == ""){
       write.csv(waking_day_summary, paste(chart_title, "_Waking_Day_Summary.csv", sep=""), row.names = FALSE)
     }else{
@@ -287,6 +343,7 @@ generate.physical.behaviour.summary <-
     }
     message("Outputting Calendar Day Output")
     calendar_day_summary <- dplyr::bind_rows(calendar_day_summary)
+    calendar_day_summary <- format.summary.outcomes(calendar_day_summary)
     if(output_folder == ""){
       write.csv(calendar_day_summary, paste(chart_title, "_Calendar_Day_Summary.csv", sep=""), row.names = FALSE)
     }else{
@@ -317,7 +374,9 @@ generate.physical.behaviour.summary <-
       travel_data <- dplyr::bind_rows(travel_data)
       daily_stepping_data <- dplyr::bind_rows(daily_stepping_data)
       mvpa_data <- dplyr::bind_rows(mvpa_data)
+      bouted_stepping_data <- dplyr::bind_rows(bouted_stepping_data)
       time_first_step_data <- dplyr::bind_rows(time_first_step_data)
+      # activity_data <- dplyr::bind_rows(activity_data)
 
       if(is.null(median_rise_time)){
         message("No rise time data found. Rise Time will not be plotted.")
@@ -332,7 +391,7 @@ generate.physical.behaviour.summary <-
       non_wear_data$activity <- "non wear"
 
       if(anonymise){
-        anonymise_table <- build.anonymous.mapping(parse.file.name(stepping_data$uid, prefix_delimiter, prefix_length))
+        anonymise_table <- build.anonymous.mapping(stepping_data$uid)
         events_file_data$uid <- anonymise.id(events_file_data$uid,anonymise_table)
         valid_days$uid <- anonymise.id(valid_days$uid,anonymise_table)
         walk_test_2_min_data$uid <- anonymise.id(walk_test_2_min_data$uid,anonymise_table)
@@ -347,7 +406,9 @@ generate.physical.behaviour.summary <-
         daily_stepping_data$uid <- anonymise.id(daily_stepping_data$uid,anonymise_table)
         travel_data$uid <- anonymise.id(travel_data$uid,anonymise_table)
         mvpa_data$uid <- anonymise.id(mvpa_data$uid,anonymise_table)
+        bouted_stepping_data$uid <- anonymise.id(bouted_stepping_data$uid,anonymise_table)
         time_first_step_data$uid <- anonymise.id(time_first_step_data$uid,anonymise_table)
+        activity_data$uid <- anonymise.id(activity_data$uid,anonymise_table)
         if(!is.null(median_rise_time_data)){
           median_rise_time_data$uid <- anonymise.id(median_rise_time_data$uid,anonymise_table)
         }
@@ -420,6 +481,9 @@ generate.physical.behaviour.summary <-
       mvpa_summary <- mvpa_data %>%
         tidyr::pivot_wider(names_from = "category", values_from = "time") %>%
         tidyr::replace_na(list(LPA = 0, MPA = 0, MVPA = 0, VPA = 0))
+      bouted_stepping_summary <- bouted_stepping_data %>%
+        tidyr::pivot_wider(names_from = "duration", values_from = "steps") %>%
+        tidyr::replace_na(list(short = 0, intermediate = 0, long = 0))
 
       overall_summary <- dplyr::inner_join(valid_day_summary,sedentary_summary, by = "uid")
       overall_summary <- dplyr::inner_join(overall_summary,upright_summary, by = "uid")
@@ -432,17 +496,23 @@ generate.physical.behaviour.summary <-
       overall_summary <- dplyr::inner_join(overall_summary,peak_12_min, by = "uid")
       overall_summary <- dplyr::inner_join(overall_summary,travel_data_summary, by = "uid")
       overall_summary <- dplyr::inner_join(overall_summary,mvpa_summary, by = "uid")
+      overall_summary <- dplyr::inner_join(overall_summary,bouted_stepping_summary, by = "uid")
 
       numeric_columns <- c(1:ncol(overall_summary))[-c(which(colnames(overall_summary) == "uid"),which(colnames(overall_summary) == "duration"))]
       overall_summary[,numeric_columns] <- round(overall_summary[,numeric_columns], 1)
-      overall_summary <- overall_summary %>% pivot_wider(names_from = 31, values_from = c(33,34,35,36))
+      # cols_to_names_pivot <- which(colnames(overall_summary) %in% c("VPA (> 125 spm)","MVPA (100 - 125 spm)","MPA (75 - 100 spm)","LPA (< 75 spm)"))
+      cols_to_values_pivot <- which(colnames(overall_summary) == "short_percent")
+      cols_to_names_pivot <- cols_to_values_pivot - 1
+      overall_summary <- overall_summary %>% pivot_wider(names_from = cols_to_names_pivot,
+                                                         values_from = cols_to_values_pivot)
+      # overall_summary <- overall_summary %>% pivot_wider(names_from = 36, values_from = c(38,39,40,41))
 
       message("Generating summary outcome PDF")
       if(sort_order == "ALL"){
         for(i in sort_order_groups){
           generate.devices.summary(sedentary_data, upright_data,
                                    walk_test_2_min_data, walk_test_6_min_data, walk_test_12_min_data, walk_test_30_s_data,
-                                   stepping_data, travel_data, mvpa_data, valid_days, daily_stepping_data, bouts_breaks_data,
+                                   stepping_data, travel_data, mvpa_data, bouted_stepping_data, valid_days, daily_stepping_data, bouts_breaks_data,
                                    no_valid_days, median_rise_time_data, time_first_step_data, median_cadence_data,
                                    chart_title, output_folder,
                                    standard_scales, i)
@@ -450,7 +520,7 @@ generate.physical.behaviour.summary <-
       }else{
         generate.devices.summary(sedentary_data, upright_data,
                                  walk_test_2_min_data, walk_test_6_min_data, walk_test_12_min_data, walk_test_30_s_data,
-                                 stepping_data, travel_data, mvpa_data, valid_days, daily_stepping_data, bouts_breaks_data,
+                                 stepping_data, travel_data, mvpa_data, bouted_stepping_data, valid_days, daily_stepping_data, bouts_breaks_data,
                                  no_valid_days, median_rise_time_data, time_first_step_data, median_cadence_data,
                                  chart_title, output_folder,
                                  standard_scales, sort_order)
@@ -489,12 +559,6 @@ generate.physical.behaviour.summary <-
 generate.sort.order <-
   function(list, sort_order){
     #' @import dplyr
-    if(sort_order == "UID"){
-      list <- list %>% dplyr::filter(.data$category == "Stepping")
-      list <- list %>% dplyr::arrange(uid)
-      return(list)
-    }
-
     sort_order_groups <- c("SEDENTARY_TIME", "TIME_IN_BED", "UPRIGHT_TIME", "STEPPING_TIME",
                            "DAILY_SEDENTARY_BOUTS","DAILY_TIB_INTERRUPTIONS","STEPPING_BOUTS_UNDER_1_MIN",
                            "PEAK_2_MIN_STEPPING", "PEAK_6_MIN_STEPPING", "PEAK_12_MIN_STEPPING",
@@ -521,8 +585,8 @@ generate.sort.order <-
 
 generate.devices.summary <-
   function(sedentary_data, upright_data, walk_test_2_min_data, walk_test_6_min_data, walk_test_12_min_data, walk_test_30_s_data,
-           stepping_data, travel_data, mvpa_data, valid_days, daily_stepping_data, bouts_breaks_data, no_valid_days,
-           median_rise_time_data, median_first_step_data, median_cadence_data,
+           stepping_data, travel_data, mvpa_data, bouted_stepping_data, valid_days, daily_stepping_data, bouts_breaks_data,
+           no_valid_days, median_rise_time_data, median_first_step_data, median_cadence_data,
            chart_title, output_folder, standard_scales = FALSE, sort_order){
     #' @import dplyr
     #' @import tidyr
@@ -541,7 +605,7 @@ generate.devices.summary <-
     chart_data[grep("Stepping",chart_data$bout_length),]$category <- "Standing"
 
     activity_group <- c("Sedentary (4 hours +)", "Sedentary (2 - 4 hours)", "Sedentary (1 - 2 hours)", "Sedentary (30 min - 1 hour)", "Sedentary (< 30 min)",
-                        "Quiet Standing", "Stepping (1 minute +)", "Stepping (< 1 minute)",
+                        "Quiet Standing", "Stepping (10 minutes +)", "Stepping (1 - 10 minutes)", "Stepping (< 1 minute)",
                         "Time in Bed (4 hours +)", "Time in Bed (2 - 4 hours)", "Time in Bed (1 - 2 hours)", "Time in Bed (30 min - 1 hour)", "Time in Bed (< 30 min)")
 
     chart_data$bout_length <- factor(chart_data$bout_length, levels = c(activity_group))
@@ -627,6 +691,10 @@ generate.devices.summary <-
     chart_summary[20,]$category <- "peak cadence"
     chart_summary[20,]$duration <- max(walk_test_30_s_data$cadence)
 
+    chart_summary[21,]$category <- "mean steps"
+    mean_steps <- bouted_stepping_data %>% group_by(uid) %>% summarise(steps = sum(steps))
+    chart_summary[21,]$duration <- max(mean_steps$steps) - max(mean_steps$steps) %% 5000 + 5000
+
     chart_element <- chart_data[grep("Stepping",chart_data$bout_length),]
     chart_element$bout_length <- factor(chart_element$bout_length, levels = activity_group)
 
@@ -681,6 +749,10 @@ generate.devices.summary <-
       dplyr::group_by(uid, .data$category) %>%
       dplyr::summarise(total_time = sum(abs(.data$time))) %>%
       dplyr::select("uid", "category", duration = "total_time")
+    bouted_stepping_summary <- bouted_stepping_data %>%
+      dplyr::group_by(uid, .data$duration) %>%
+      dplyr::summarise(total_steps = sum(.data$steps)) %>%
+      dplyr::select("uid", category = "duration", duration = "total_steps")
     if(!is.null(median_rise_time_data)){
       median_rise_time <- median_rise_time_data %>%
         dplyr::mutate(category = "Median Rise Time") %>%
@@ -689,30 +761,42 @@ generate.devices.summary <-
     }else{
       median_rise_time <- NULL
     }
-    median_cadence_max <- median_cadence_data %>%
-      dplyr::filter(.data$group == "1 minute +") %>%
-      dplyr::mutate(category = "Median Cadence Long") %>%
-      dplyr::group_by(uid, .data$category) %>%
+
+    median_cadence_data$category <- "Median Cadence Long"
+    median_cadence_data[which(median_cadence_data$group == "1 - 10 minutes"),]$category <-
+      "Median Cadence Medium"
+    median_cadence_data[which(median_cadence_data$group == "< 1 minute"),]$category <-
+      "Median Cadence Short"
+    median_cadence_data$category <- factor(median_cadence_data$category,
+                                           levels = c("Median Cadence Long","Median Cadence Medium","Median Cadence Short"))
+
+    median_cadence_full_range <- median_cadence_data %>%
+      tidyr::expand(category)
+    median_cadence_val <- median_cadence_data %>%
+      dplyr::group_by(uid, category) %>%
       dplyr::summarise(duration = max(.data$median_cadence))
-    median_cadence_min <- median_cadence_data %>%
-      dplyr::filter(.data$group == "< 1 minute") %>%
-      dplyr::mutate(category = "Median Cadence Short") %>%
-      dplyr::group_by(uid, .data$category) %>%
-      dplyr::summarise(duration = min(.data$median_cadence))
+
+    median_cadence_range <- dplyr::left_join(median_cadence_full_range, median_cadence_val,
+                                             by = c("uid","category")) %>%
+      replace_na(list(duration = 0))
+
     duration <- dplyr::inner_join(below_1_minute,stepping, by = "uid")
     duration$percent <- round((duration$short_duration / duration$duration * 100),0)
     duration <- duration[,c(1,3,5)]
     colnames(duration)[3] <- "duration"
     duration$category <- "Stepping Under 1 Min"
+    first_valid_day <- valid_days %>%
+      dplyr::mutate(category = "First Date") %>%
+      dplyr::group_by(uid, .data$category) %>%
+      dplyr::summarise(duration = as.numeric(min(.data$Date)))
     if(is.null(median_rise_time)){
       sort_data <- dplyr::bind_rows(posture, stepping, sedentary_bouts, tib_breaks, travel_summary, mvpa_summary,
-                             peak_2_min, peak_6_min, peak_12_min, peak_30_s,
-                             median_steps, duration, median_cadence_max, median_cadence_min)
+                                    bouted_stepping_summary, peak_2_min, peak_6_min, peak_12_min, peak_30_s,
+                                    median_steps, duration, median_cadence_range, first_valid_day)
     }else{
       sort_data <- dplyr::bind_rows(posture, stepping, sedentary_bouts, tib_breaks, travel_summary, mvpa_summary,
-                             peak_2_min, peak_6_min, peak_12_min, peak_30_s,
-                             median_steps, duration, median_rise_time,
-                             median_cadence_max, median_cadence_min)
+                                    bouted_stepping_summary, peak_2_min, peak_6_min, peak_12_min, peak_30_s,
+                                    median_steps, duration, median_rise_time, median_cadence_range, first_valid_day)
     }
 
     individual_summary <- generate.sort.order(sort_data, sort_order)
@@ -730,8 +814,8 @@ generate.devices.summary <-
       dplyr::group_by(uid) %>%
       dplyr::filter(.data$steps == max(.data$steps))
 
-    generate.all.outcomes.report(valid_days, chart_data, daily_stepping_data, travel_data, mvpa_data, median_rise_time_data, median_first_step_data,
-                                 median_cadence_data, walk_test_30_s_data, walk_test_2_min_data, walk_test_6_min_data, walk_test_12_min_data,
+    generate.all.outcomes.report(valid_days, chart_data, daily_stepping_data, travel_data, mvpa_data, bouted_stepping_data, median_rise_time_data,
+                                 median_first_step_data, median_cadence_data, walk_test_30_s_data, walk_test_2_min_data, walk_test_6_min_data, walk_test_12_min_data,
                                  bouts_breaks_data, chart_summary, individual_summary, median_rise_time, sort_order,
                                  chart_title, output_folder, standard_scales)
   }

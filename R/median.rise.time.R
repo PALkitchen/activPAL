@@ -1,5 +1,5 @@
 process.rise.time <-
-  function(folder){
+  function(folder, prefix_delimiter, prefix_length){
     #' @import dplyr
 
     # Assumes that the name of the events files contain the text Events in the file name
@@ -20,7 +20,7 @@ process.rise.time <-
       rise.file$time <- as.POSIXct(rise.file$time * 86400, origin = "1899-12-30", tz ="UTC")
       rise.file$Date <- as.Date(rise.file$time)
 
-      uid <- parse.file.name(file.names[i])
+      uid <- parse.file.name(file.names[i], prefix_delimiter, prefix_length)
 
       rise.file <- rise.file %>%
         dplyr::summarise(median_rise_time = stats::median(.data$duration)) %>%

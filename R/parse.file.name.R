@@ -8,7 +8,7 @@ parse.file.name <-
     if(is.null(prefix_length)){
       end_pos <- regexpr(prefix_delimiter,file_name)[1] - 1
       if(end_pos < 0){
-        return(substr(file_name, 1, 6))
+        return(substr(file_name, 1, end_pos))
       }
       return(substr(file_name, 1, end_pos))
     }

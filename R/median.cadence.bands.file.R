@@ -1,23 +1,36 @@
 median.cadence.bands.file <-
-  function(events_file, file_uid){
+  function(events_file, file_uid, upright_bout = FALSE){
     #' @import dplyr
-    lower_bound <- c(10,60)
-    upper_bound <- c(60,86400)
+    lower_bound <- c(10,60,600)
+    upper_bound <- c(60,600,86400)
 
+    events_file <- group.stepping.by.upright.bout(events_file)
     events_file <- events_file[which(events_file$activity == 2 & events_file$interval >= lower_bound[1]),]
     events_file$cadence <- events_file$steps / (events_file$interval / 60)
+    longest_stepping <- events_file %>%
+      filter(activity == 2) %>%
+      group_by(upright_bout) %>%
+      summarise(max_stepping = max(interval))
+    events_file <- left_join(events_file, longest_stepping, by = c("upright_bout"))
+    events_file[is.na(events_file)] <- 0
+
     if(nrow(events_file) == 0){
-      median_cadence_by_group <- as.data.frame(matrix(nrow = 2, ncol = 3))
+      median_cadence_by_group <- as.data.frame(matrix(nrow = 3, ncol = 3))
       colnames(median_cadence_by_group) <- c("uid","group","median_cadence")
       median_cadence_by_group$uid <- file_uid
       median_cadence_by_group[1,]$group <- "< 1 minute"
-      median_cadence_by_group[2,]$group <- "1 minute +"
+      median_cadence_by_group[2,]$group <- "1 - 10 minutes"
+      median_cadence_by_group[3,]$group <- "10 minutes +"
       median_cadence_by_group$median_cadence <- 0
       return(median_cadence_by_group)
     }
     events_file$group <- ""
     for (i in (1:length(lower_bound))){
-      in_group <- which(events_file$interval >= lower_bound[i] & events_file$interval < upper_bound[i])
+      if(upright_bout){
+        in_group <- which(events_file$max_stepping >= lower_bound[i] & events_file$max_stepping < upper_bound[i])
+      }else{
+        in_group <- which(events_file$interval >= lower_bound[i] & events_file$interval < upper_bound[i])
+      }
       if(length(in_group) > 0 ){
         # Convert the maximum and minimum duration into a label
         duration_label <- paste(lubridate::seconds_to_period(lower_bound[i]),"to",lubridate::seconds_to_period(upper_bound[i]))
@@ -36,8 +49,11 @@ median.cadence.bands.file <-
 
     median_cadence_by_group <- events_file %>% dplyr::group_by(.data$uid, .data$group) %>%
       dplyr::summarise(median_cadence = weighted.median(.data$cadence,.data$steps))
-    if(length(which(median_cadence_by_group$group == "1 minutes to 1 day")) > 0){
-      median_cadence_by_group[which(median_cadence_by_group$group == "1 minutes to 1 day"),]$group <- "1 minute +"
+    if(length(which(median_cadence_by_group$group == "10 minutes to 1 day")) > 0){
+      median_cadence_by_group[which(median_cadence_by_group$group == "10 minutes to 1 day"),]$group <- "10 minutes +"
+    }
+    if(length(which(median_cadence_by_group$group == "1 minutes to 10 minutes")) > 0){
+      median_cadence_by_group[which(median_cadence_by_group$group == "1 minutes to 10 minutes"),]$group <- "1 - 10 minutes"
     }
     if(length(which(median_cadence_by_group$group == "10 seconds to 1 minute")) > 0){
       median_cadence_by_group[which(median_cadence_by_group$group == "10 seconds to 1 minute"),]$group <- "< 1 minute"

@@ -1,5 +1,5 @@
 activpal.extended.events.file.process<-
-  function(data, wear_time_minimum = 72000, pal_batch_format = FALSE){
+  function(data, wear_time_minimum = 72000, pal_batch_format = FALSE, split_events = TRUE){
     # takes in an unprocessed activpal file, formatting and processing the file to allow further analysis
     # data = an unprocessed activpal event file
     # wear.time.minimum = minimum wear time required for a day to be considered valid
@@ -10,6 +10,9 @@ activpal.extended.events.file.process<-
     process_data <- extended.events.file.process.exclude.days(process_data,(86400 - wear_time_minimum), pal_batch_format)
     if(nrow(process_data) != 0){
       process_data <- extended.events.file.process.merge.stepping(process_data)
+    }
+    if(!split_events){
+      process_data <- extended.events.file.process.merge.events(process_data)
     }
     return(process_data)
   }
@@ -148,6 +151,23 @@ extended.events.file.process.merge.stepping<-
 
     if(length(which(data$activity == 2 & data$steps == 0)) > 0){
       data <- data[-which(data$activity == 2 & data$steps == 0),]
+    }
+    return(data)
+  }
+
+extended.events.file.process.merge.events<-
+  function(data){
+    split_events <- which(diff(data$activity)==0)
+    remove_events <- c()
+    if(length(split_events) != 0){
+      for(i in split_events){
+        if(data[i,]$activity != 2.1){
+          data[i,]$interval <- data[i,]$interval + data[i+1,]$interval
+          data[i,]$MET_h <- data[i,]$interval + data[i+1,]$MET_h
+          remove_events <- c(remove_events,i)
+        }
+      }
+      data <- data[-(remove_events + 1),]
     }
     return(data)
   }
