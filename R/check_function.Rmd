@@ -1,0 +1,26 @@
+
+
+```{r}
+library(codetools)
+
+fun_call <- function(f) {
+  leaf <- function (e, w) {
+    r <- try(eval(e), silent = TRUE)
+    if(!is.null(r) && is.function(r)) ret <<- c(ret, as.character(e))
+  }
+  call <- function (e, w) {
+    codetools::walkCode(e[[1]], w)
+    for (a in as.list(e[-1])) if (!missing(a)) walkCode(a, w)
+  }
+  ret <- c()
+  codetools::walkCode(body(f), makeCodeWalker(call = call, leaf = leaf, write = cat))
+  return(functions = unique(ret))
+}
+
+fun_call(individual.chart.overlay)
+fun_call(activity.with.overlay.chart.folder_drive)
+fun_call(activity.with.overlay.chart_drive)
+fun_call(ff)
+?missing
+```
+
