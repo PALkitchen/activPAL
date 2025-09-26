@@ -21,7 +21,13 @@ extended.events.file.process.rename.row<-
   function(data){
     # Renames the initial row names of an imported activpal event file to facilitate easier processing
     # data = an unprocessed activpal event file
-    data <- data[,c(1,3:8)]
+
+    if(length(which(colnames(data) == "Locus")) == 1){
+      data <- data[,c(1,3:7,9)]
+    }else{
+      data <- data[,c(1,3:8)]
+    }
+
     colnames(data)<-c("time","samples","activity","interval","waking_day","cumulative_steps","MET_h")
 
     return(data)
